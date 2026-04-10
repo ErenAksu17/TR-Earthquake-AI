@@ -1,95 +1,57 @@
 # 🌍 TR Earthquake AI
 
-## 🌍 Languages / Diller / Lingue
+> **Türkiye Sismik Risk Analiz & Yapay Zeka Platformu**
 
-- [🇬🇧 English](#-english)
+[![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-FF4B4B?logo=streamlit)](https://streamlit.io)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
+---
+
+## 🌐 Dil / Language / Lingua
+
 - [🇹🇷 Türkçe](#-türkçe)
+- [🇬🇧 English](#-english)
 - [🇮🇹 Italiano](#-italiano)
-
----
-
-## 🇬🇧 English
-
-**TR Earthquake AI** is a data analysis application for visualizing and analyzing earthquakes in Turkey.  
-It also includes an experimental AI-supported risk assessment system.
-
----
-
-### 🚀 Features
-
-- Visualizes earthquake data on an interactive map  
-- Filtering by date, magnitude, and depth  
-- Monthly and yearly earthquake frequency charts  
-- Fault line mapping with risk score analysis  
-- AI-based early prediction experiments  
-- Option to download the dataset as CSV  
-
----
-
-### 📊 Data Source
-
-- **AFAD** (Official earthquake data published by Turkish Disaster and Emergency Authority)
-
----
-
-### ⚙️ Setup
-
-```bash
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
-````
-
----
-
-### ▶️ Run the App
-
-```bash
-streamlit run app/dashboard.py
-```
-
----
-
-### ⚠️ Note
-
-This project does not claim scientific or academic accuracy.
-It is purely for development, data visualization, and experimentation purposes.
-Risk scores are calculated on an experimental basis.
 
 ---
 
 ## 🇹🇷 Türkçe
 
-**TR Earthquake AI**, Türkiye'deki depremleri analiz eden ve görselleştiren; ayrıca yapay zeka destekli risk değerlendirmesi yapmaya yönelik bir veri analizi uygulamasıdır.
-
----
+**TR Earthquake AI**, Türkiye'deki depremleri görselleştiren, zaman içindeki sismik aktiviteyi analiz eden ve makine öğrenmesiyle risk değerlendirmesi yapan interaktif bir veri platformudur.
 
 ### 🚀 Özellikler
 
-* Deprem verilerini harita üzerinde görselleştirme
-* Tarih, büyüklük, derinlik gibi filtrelerle detaylı analiz
-* Yıllık ve aylık deprem frekansı grafikleri
-* Diri fay hatlarının gösterimi ve risk skorlarına göre analiz
-* Yapay zeka ile ön tahmin denemeleri
-* Veri setini CSV olarak indirme imkânı
+| Özellik | Açıklama |
+|---------|----------|
+| 🗺️ **Deprem Haritası** | Kümeleme, ısı haritası veya bireysel işaretçi modlarıyla interaktif harita |
+| 🔥 **Isı Haritası** | Büyüklük ve derinlik bazlı yoğunluk haritaları |
+| 📈 **Zaman Analizi** | Yıllık/aylık frekans, mevsimsel ısı haritası, kümülatif grafik |
+| ⚠️ **Fay Risk Analizi** | Diri fay hatları bazında normalize edilmiş risk skorları |
+| 🤖 **ML Tahmin Modeli** | K-Means sismik zon kümeleme + Random Forest büyüklük sınıflandırması |
+| 📊 **Veri Kümesi** | Arama, filtreleme ve CSV indirme |
 
----
+### 📊 Veri Kaynakları
 
-### 📊 Veri Kaynağı
-
-* **AFAD** (resmî olarak yayımlanmış geçmiş deprem verileri)
-
----
+- **AFAD** — Afet ve Acil Durum Yönetimi Başkanlığı (resmi Türkiye deprem verileri)
+- **USGS** — ABD Jeoloji Araştırmaları Kurumu (1900–1990 tarihi veriler)
+- **Diri Fay Veritabanı** — GeoJSON formatında Türkiye aktif fay hatları
 
 ### ⚙️ Kurulum
 
 ```bash
+# 1. Repo'yu klonla
+git clone https://github.com/ErenAksu17/TR-Earthquake-AI.git
+cd TR-Earthquake-AI
+
+# 2. Sanal ortam oluştur
 python -m venv .venv
-.\.venv\Scripts\activate
+.\.venv\Scripts\activate      # Windows
+# source .venv/bin/activate   # Linux/Mac
+
+# 3. Bağımlılıkları yükle
 pip install -r requirements.txt
 ```
-
----
 
 ### ▶️ Uygulamayı Başlat
 
@@ -97,62 +59,108 @@ pip install -r requirements.txt
 streamlit run app/dashboard.py
 ```
 
----
+### 🧪 Testleri Çalıştır
+
+```bash
+pip install pytest
+pytest tests/ -v
+```
+
+### 📁 Proje Yapısı
+
+```
+TR-Earthquake-AI/
+├── app/
+│   └── dashboard.py          # Ana Streamlit uygulaması
+├── src/
+│   ├── config.py             # Merkezi konfigürasyon
+│   ├── fetch_afad.py         # AFAD API veri çekici
+│   ├── fetch_usgs.py         # USGS veri çekici
+│   ├── merge_datasets.py     # Veri birleştirici
+│   ├── preprocess.py         # Veri temizleme
+│   ├── ml_model.py           # K-Means + Random Forest ML pipeline
+│   ├── fay_risk_analiz.py    # Fay hattı risk skorlama
+│   └── visualization.py      # Çizim yardımcıları
+├── data/                     # Veri dosyaları (xlsx, geojson, csv)
+├── tests/                    # Birim testler
+├── .streamlit/
+│   └── config.toml           # Dark tema konfigürasyonu
+└── requirements.txt
+```
 
 ### ⚠️ Not
 
-Bu proje akademik veya bilimsel bir doğruluk iddiası taşımaz.
-Tamamen geliştirme, analiz ve veri görselleştirme amaçlıdır.
-Risk skorları deneysel olarak hesaplanmıştır.
+Bu proje akademik veya bilimsel doğruluk iddiası taşımaz. Geliştirme, görselleştirme ve deney amaçlıdır. Risk skorları deneysel hesaplamaya dayanır.
 
 ---
 
-## 🇮🇹 Italiano
+## 🇬🇧 English
 
-**TR Earthquake AI** è un'applicazione di analisi dei dati progettata per visualizzare e analizzare i terremoti in Turchia.
-Include anche un sistema sperimentale di valutazione del rischio supportato dall'intelligenza artificiale.
+**TR Earthquake AI** is an interactive data platform for visualizing Turkish earthquakes, analyzing seismic activity over time, and performing AI-powered risk assessment.
 
----
+### 🚀 Features
 
-### 🚀 Caratteristiche
+| Feature | Description |
+|---------|-------------|
+| 🗺️ **Earthquake Map** | Interactive map with cluster, heatmap, or individual marker modes |
+| 🔥 **Heatmap** | Magnitude and depth-based density maps |
+| 📈 **Time Analysis** | Yearly/monthly frequency, seasonal heatmap, cumulative chart |
+| ⚠️ **Fault Risk Analysis** | Normalized risk scores per active fault line |
+| 🤖 **ML Model** | K-Means seismic zone clustering + Random Forest magnitude classification |
+| 📊 **Dataset** | Search, filter, and CSV download |
 
-* Visualizzazione dei terremoti su mappa interattiva
-* Filtri per data, magnitudo e profondità
-* Grafici di frequenza mensile e annuale dei terremoti
-* Visualizzazione delle faglie attive con punteggio di rischio
-* Esperimenti di previsione con AI
-* Possibilità di scaricare il dataset in formato CSV
+### 📊 Data Sources
 
----
+- **AFAD** — Turkish Disaster and Emergency Authority (official earthquake data)
+- **USGS** — United States Geological Survey (1900–1990 historical data)
+- **Active Fault Database** — Turkey active fault lines in GeoJSON format
 
-### 📊 Fonte dei Dati
-
-* **AFAD** (Dati ufficiali pubblicati dall'Autorità turca per i disastri e le emergenze)
-
----
-
-### ⚙️ Installazione
+### ⚙️ Setup
 
 ```bash
+git clone https://github.com/ErenAksu17/TR-Earthquake-AI.git
+cd TR-Earthquake-AI
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
----
-
-### ▶️ Avvio dell'App
+### ▶️ Run
 
 ```bash
 streamlit run app/dashboard.py
 ```
 
+### ⚠️ Note
+
+This project does not claim scientific or academic accuracy. It is for development, visualization, and experimentation purposes only.
+
 ---
+
+## 🇮🇹 Italiano
+
+**TR Earthquake AI** è una piattaforma dati interattiva per visualizzare i terremoti in Turchia, analizzare l'attività sismica nel tempo ed eseguire valutazioni del rischio tramite AI.
+
+### 🚀 Caratteristiche
+
+- 🗺️ Mappa interattiva con modalità cluster, heatmap e marker individuali
+- 🔥 Mappe di densità per magnitudo e profondità
+- 📈 Analisi temporale: frequenza annuale/mensile, stagionale, cumulativa
+- ⚠️ Punteggi di rischio per faglia attiva
+- 🤖 Clustering K-Means + classificazione Random Forest
+- 📊 Dataset ricercabile con download CSV
+
+### ⚙️ Installazione
+
+```bash
+git clone https://github.com/ErenAksu17/TR-Earthquake-AI.git
+cd TR-Earthquake-AI
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run app/dashboard.py
+```
 
 ### ⚠️ Nota
 
-Questo progetto non pretende alcuna accuratezza scientifica o accademica.
-È sviluppato a scopo sperimentale, analitico e per la visualizzazione dei dati.
-I punteggi di rischio sono calcolati su base sperimentale.
-
-```
+Questo progetto non pretende accuratezza scientifica. È sviluppato a scopo sperimentale e di visualizzazione.

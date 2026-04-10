@@ -1,41 +1,76 @@
+"""USGS tarihi deprem verisi çekme modülü — hata yönetimiyle."""
+
 import requests
 import pandas as pd
 import os
+import logging
 
-def fetch_usgs_1900_1990(min_mag=5.0, output="data/usgs_1900_1990.csv"):
-    url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+from src.config import USGS, PATHS
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+log = logging.getLogger(__name__)
+
+
+def fetch_usgs(
+    start: str = None,
+    end: str = None,
+    min_mag: float = None,
+    output: str = None,
+) -> pd.DataFrame:
+    """USGS FDSNWS'den deprem verisi çeker ve DataFrame döndürür."""
+    start   = start   or USGS["start"]
+    end     = end     or USGS["end"]
+    min_mag = min_mag or USGS["min_mag"]
+    output  = output  or PATHS["usgs_csv"]
+
     params = {
-        "format": "geojson",
-        "starttime": "1900-01-01",
-        "endtime": "1989-12-31",
+        "format":       "geojson",
+        "starttime":    start,
+        "endtime":      end,
         "minmagnitude": min_mag,
-        "limit": 20000,  # yüksek limit çünkü 90 yıl
-        "orderby": "time-asc"
+        "limit":        USGS["limit"],
+        "orderby":      "time-asc",
     }
 
-    print("🔄 USGS verisi çekiliyor...")
-    resp = requests.get(url, params=params)
-    resp.raise_for_status()
-    data = resp.json()
+    log.info("🔄 USGS verisi çekiliyor (%s – %s, M≥%.1f)...", start, end, min_mag)
+    try:
+        resp = requests.get(USGS["base_url"], params=params, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.exceptions.Timeout:
+        log.error("USGS API zaman aşımı.")
+        return pd.DataFrame()
+    except requests.exceptions.HTTPError as e:
+        log.error("USGS HTTP hatası: %s", e)
+        return pd.DataFrame()
+    except requests.exceptions.RequestException as e:
+        log.error("USGS bağlantı hatası: %s", e)
+        return pd.DataFrame()
+
+    features = data.get("features", [])
+    if not features:
+        log.warning("USGS'den hiç veri alınamadı.")
+        return pd.DataFrame()
 
     records = []
-    for feature in data["features"]:
-        props = feature["properties"]
+    for feature in features:
+        props  = feature["properties"]
         coords = feature["geometry"]["coordinates"]
         records.append({
-            "eventDate": pd.to_datetime(props["time"], unit='ms'),
-            "latitude": coords[1],
+            "eventDate": pd.to_datetime(props["time"], unit="ms"),
+            "latitude":  coords[1],
             "longitude": coords[0],
-            "depth": coords[2],
+            "depth":     coords[2],
             "magnitude": props["mag"],
-            "location": props["place"]
+            "location":  props.get("place", ""),
         })
 
     df = pd.DataFrame(records)
-    os.makedirs("data", exist_ok=True)
+    os.makedirs(os.path.dirname(output), exist_ok=True)
     df.to_csv(output, index=False)
-    print(f"✅ USGS verisi kaydedildi: {output}")
-    print(df.head())
+    log.info("✅ USGS verisi kaydedildi: %s (%d kayıt)", output, len(df))
+    return df
+
 
 if __name__ == "__main__":
-    fetch_usgs_1900_1990()
+    fetch_usgs()
