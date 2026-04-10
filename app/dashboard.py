@@ -10,7 +10,7 @@ st.set_page_config(
 import pandas as pd
 import plotly.express as px
 import numpy as np
-from datetime import date
+from datetime import date, datetime
 from streamlit_folium import folium_static
 import folium
 from folium.plugins import FastMarkerCluster, HeatMap
@@ -18,6 +18,10 @@ import geopandas as gpd
 from shapely.geometry import box
 import json
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.fetch_kandilli import get_live, api_status
 
 # ── Yollar ───────────────────────────────────────────────────────────────────
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -27,15 +31,46 @@ DATA = os.path.join(BASE, "data")
 st.markdown("""
 <style>
 [data-testid="stSidebar"] { background: #0f1624; }
+
 div[data-testid="metric-container"] {
     background: #1a2035;
     border-radius: 10px;
     padding: 14px 18px;
     border-left: 3px solid #e74c3c;
 }
-div[data-testid="metric-container"] label { color: #8899aa !important; font-size: 12px !important; }
+div[data-testid="metric-container"] label {
+    color: #8899aa !important;
+    font-size: 12px !important;
+}
 div[data-testid="metric-container"] [data-testid="stMetricValue"] {
-    color: #fff !important; font-size: 24px !important; font-weight: 700 !important;
+    color: #fff !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+}
+
+.canli-badge {
+    display: inline-block;
+    background: #e74c3c;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 999px;
+    letter-spacing: 1px;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%   { opacity: 1; }
+    50%  { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.mag-chip {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 13px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -61,6 +96,10 @@ def load_faults():
     except Exception:
         return None
 
+@st.cache_data(ttl=60, show_spinner=False)   # 60 saniyede bir güncelle
+def load_live(source):
+    return get_live(source)
+
 # ── Renk ─────────────────────────────────────────────────────────────────────
 def mag_color(m):
     if m >= 7:   return "#e74c3c"
@@ -68,71 +107,190 @@ def mag_color(m):
     elif m >= 5: return "#f1c40f"
     else:        return "#3498db"
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+def mag_label(m):
+    if m >= 7:   return "🔴"
+    elif m >= 6: return "🟠"
+    elif m >= 5: return "🟡"
+    else:        return "🔵"
+
+# ── Veri yükle ───────────────────────────────────────────────────────────────
 with st.spinner("Veriler yükleniyor..."):
-    df = load_data()
+    df     = load_data()
     faults = load_faults()
 
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 st.sidebar.markdown("## 🌍 TR Earthquake AI")
 st.sidebar.markdown("---")
 
-sayfa = st.sidebar.radio("Sayfa", ["🗺️ Harita", "📈 Analiz", "📊 Veri"])
+sayfa = st.sidebar.radio(
+    "Sayfa",
+    ["🔴 Canlı Veriler", "🗺️ Harita", "📈 Analiz", "📊 Veri"],
+    label_visibility="collapsed",
+)
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("**Filtreler**")
+# Canlı sayfa için filtre yok
+if sayfa != "🔴 Canlı Veriler":
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**Filtreler**")
 
-DATE_MIN = df["eventDate"].min().date()
-DATE_MAX = date.today()
+    DATE_MIN = df["eventDate"].min().date()
+    DATE_MAX = date.today()
 
-start = st.sidebar.date_input("Başlangıç", DATE_MIN, min_value=DATE_MIN, max_value=DATE_MAX)
-end   = st.sidebar.date_input("Bitiş",     DATE_MAX, min_value=DATE_MIN, max_value=DATE_MAX)
+    start = st.sidebar.date_input("Başlangıç", DATE_MIN, min_value=DATE_MIN, max_value=DATE_MAX)
+    end   = st.sidebar.date_input("Bitiş",     DATE_MAX, min_value=DATE_MIN, max_value=DATE_MAX)
 
-MAG_MIN = float(df["magnitude"].min())
-MAG_MAX = float(df["magnitude"].max())
-mag = st.sidebar.slider("Büyüklük (Mw)", MAG_MIN, MAG_MAX, (4.0, min(7.5, MAG_MAX)), 0.1)
+    MAG_MIN = float(df["magnitude"].min())
+    MAG_MAX = float(df["magnitude"].max())
+    mag = st.sidebar.slider("Büyüklük (Mw)", MAG_MIN, MAG_MAX, (4.0, min(7.5, MAG_MAX)), 0.1)
 
-DEP_MAX = int(df["depth"].max()) if df["depth"].max() > 0 else 700
-dep = st.sidebar.slider("Derinlik (km)", 0, DEP_MAX, (0, min(100, DEP_MAX)))
+    DEP_MAX = int(df["depth"].max()) if df["depth"].max() > 0 else 700
+    dep = st.sidebar.slider("Derinlik (km)", 0, DEP_MAX, (0, min(100, DEP_MAX)))
 
-# Filtre uygula
-f = df[
-    (df["eventDate"].dt.date >= start) &
-    (df["eventDate"].dt.date <= end)   &
-    (df["magnitude"].between(*mag))    &
-    (df["depth"].between(*dep))
-]
+    f = df[
+        (df["eventDate"].dt.date >= start) &
+        (df["eventDate"].dt.date <= end)   &
+        (df["magnitude"].between(*mag))    &
+        (df["depth"].between(*dep))
+    ]
 
-st.sidebar.markdown("---")
-st.sidebar.caption(f"{len(f):,} kayıt gösteriliyor")
+    st.sidebar.markdown("---")
+    st.sidebar.caption(f"{len(f):,} kayıt gösteriliyor")
 
-if f.empty:
-    st.warning("Seçilen filtreler için kayıt yok. Filtreleri genişletin.")
-    st.stop()
+    if f.empty:
+        st.warning("Seçilen filtreler için kayıt yok. Filtreleri genişletin.")
+        st.stop()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SAYFA 0 — CANLI VERİLER (Kandilli API)
+# ═══════════════════════════════════════════════════════════════════════════════
+if sayfa == "🔴 Canlı Veriler":
+
+    col_title, col_badge = st.columns([5, 1])
+    with col_title:
+        st.title("🔴 Canlı Deprem Verileri")
+    with col_badge:
+        st.markdown("<br>", unsafe_allow_html=True)
+        durum = api_status()
+        if durum:
+            st.success("API Aktif")
+        else:
+            st.error("API Erişilemiyor")
+
+    st.caption("Kaynak: Kandilli Rasathanesi & AFAD — Boğaziçi Üniversitesi | Her 60 saniyede güncellenir")
+
+    # Kaynak seçimi
+    k1, k2, k3 = st.columns([2, 2, 3])
+    with k1:
+        kaynak = st.selectbox("Veri Kaynağı", ["kandilli", "afad", "all"],
+                              format_func=lambda x: {"kandilli": "Kandilli Rasathanesi", "afad": "AFAD", "all": "Tümü"}[x])
+    with k2:
+        min_mag_canli = st.selectbox("Min. Büyüklük", [0, 1, 2, 3, 4], index=0,
+                                     format_func=lambda x: f"M {x}+")
+    with k3:
+        st.markdown("<br>", unsafe_allow_html=True)
+        yenile = st.button("🔄 Şimdi Yenile", use_container_width=False)
+
+    if yenile:
+        st.cache_data.clear()
+
+    with st.spinner("Kandilli Rasathanesi'nden veri çekiliyor..."):
+        live_df = load_live(kaynak)
+
+    if live_df.empty:
+        st.error("Canlı veri alınamadı. İnternet bağlantınızı kontrol edin.")
+        st.stop()
+
+    # Büyüklük filtresi
+    if min_mag_canli > 0:
+        live_df = live_df[live_df["magnitude"] >= min_mag_canli]
+
+    # KPI
+    st.markdown("---")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Son 24 Saat",   f"{len(live_df)} deprem")
+    c2.metric("En Büyük",      f"M {live_df['magnitude'].max():.1f}" if not live_df.empty else "—")
+    c3.metric("Ortalama",      f"M {live_df['magnitude'].mean():.2f}" if not live_df.empty else "—")
+    c4.metric("Ort. Derinlik", f"{live_df['depth'].mean():.0f} km"   if not live_df.empty else "—")
+    st.markdown("---")
+
+    col_map, col_tablo = st.columns([3, 2])
+
+    with col_map:
+        st.subheader("Harita")
+        m = folium.Map(location=[39, 35], zoom_start=6, tiles="CartoDB.DarkMatter", prefer_canvas=True)
+        for _, r in live_df.iterrows():
+            c = mag_color(r["magnitude"])
+            folium.CircleMarker(
+                location=[r["latitude"], r["longitude"]],
+                radius=max(5, r["magnitude"] * 2.5),
+                color=c, fill=True, fill_color=c, fill_opacity=0.8, weight=1,
+                popup=folium.Popup(
+                    f"<b>{r.get('location','')}</b><br>"
+                    f"🏙️ {r.get('city','')}<br>"
+                    f"📅 {str(r['eventDate'])[:19]}<br>"
+                    f"<b>M {r['magnitude']:.1f}</b> — {r.get('depth',0):.0f} km",
+                    max_width=220,
+                ),
+                tooltip=f"M {r['magnitude']:.1f} — {r.get('city','')}",
+            ).add_to(m)
+        if faults:
+            folium.GeoJson(faults, style_function=lambda _: {"color": "#e74c3c", "weight": 1.2, "opacity": 0.5}).add_to(m)
+        folium_static(m, width=680, height=480)
+
+    with col_tablo:
+        st.subheader("Son Depremler")
+        tablo = live_df[["eventDate", "magnitude", "depth", "location", "city"]].copy()
+        tablo["Zaman"]     = tablo["eventDate"].dt.strftime("%H:%M:%S")
+        tablo["Tarih"]     = tablo["eventDate"].dt.strftime("%d.%m.%Y")
+        tablo["Büyüklük"]  = tablo["magnitude"].apply(lambda m: f"{mag_label(m)} M {m:.1f}")
+        tablo["Derinlik"]  = tablo["depth"].apply(lambda d: f"{d:.0f} km")
+        tablo = tablo.rename(columns={"location": "Konum", "city": "İl"})
+        tablo = tablo[["Tarih", "Zaman", "Büyüklük", "Derinlik", "Konum", "İl"]]
+
+        st.dataframe(
+            tablo.reset_index(drop=True),
+            use_container_width=True,
+            height=460,
+        )
+
+    # Saatlik dağılım
+    st.subheader("Saatlik Dağılım (Son 24 Saat)")
+    live_df["saat"] = live_df["eventDate"].dt.hour
+    saatlik = live_df.groupby("saat").size().reset_index(name="Adet")
+    # Tüm saatleri göster
+    saatlik_full = pd.DataFrame({"saat": range(24)}).merge(saatlik, on="saat", how="left").fillna(0)
+    fig = px.bar(
+        saatlik_full, x="saat", y="Adet",
+        color="Adet", color_continuous_scale="RdYlBu_r",
+        labels={"saat": "Saat", "Adet": "Deprem Sayısı"},
+        template="plotly_dark",
+    )
+    fig.update_layout(height=280, margin=dict(t=10, b=10), coloraxis_showscale=False)
+    st.plotly_chart(fig, use_container_width=True)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SAYFA 1 — HARİTA
 # ═══════════════════════════════════════════════════════════════════════════════
-if sayfa == "🗺️ Harita":
+elif sayfa == "🗺️ Harita":
     st.title("🗺️ Deprem Haritası")
 
-    # KPI
     son30 = f[f["eventDate"] >= pd.Timestamp.now() - pd.Timedelta(days=30)]
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Toplam Kayıt",    f"{len(f):,}")
-    c2.metric("En Büyük",        f"M {f['magnitude'].max():.1f}")
-    c3.metric("Ortalama",        f"M {f['magnitude'].mean():.2f}")
-    c4.metric("Son 30 Gün",      f"{len(son30):,}")
+    c1.metric("Toplam Kayıt",  f"{len(f):,}")
+    c2.metric("En Büyük",      f"M {f['magnitude'].max():.1f}")
+    c3.metric("Ortalama",      f"M {f['magnitude'].mean():.2f}")
+    c4.metric("Son 30 Gün",    f"{len(son30):,}")
 
     st.markdown("---")
 
-    # Harita ayarları
     k1, k2 = st.columns([2, 2])
     with k1:
         mod = st.radio("Görünüm", ["Kümeleme", "Isı Haritası", "İşaretçiler"], horizontal=True)
     with k2:
         fay_goster = st.checkbox("Diri Fay Hatları", value=True)
 
-    # Harita oluştur
     m = folium.Map(location=[39, 35], zoom_start=6, tiles="CartoDB.DarkMatter", prefer_canvas=True)
 
     if mod == "Kümeleme":
@@ -144,7 +302,7 @@ if sayfa == "🗺️ Harita":
         HeatMap(heat, radius=12, blur=18,
                 gradient={0.2: "blue", 0.5: "cyan", 0.7: "yellow", 1.0: "red"}).add_to(m)
 
-    else:  # İşaretçiler — max 1500 nokta
+    else:
         sample = f if len(f) <= 1500 else f.nlargest(1500, "magnitude")
         for _, r in sample.iterrows():
             c = mag_color(r["magnitude"])
@@ -165,7 +323,6 @@ if sayfa == "🗺️ Harita":
     folium.LayerControl().add_to(m)
     folium_static(m, width=1150, height=560)
 
-    # Scatter
     st.subheader("Büyüklük – Zaman")
     sample_sc = f if len(f) <= 5000 else f.sample(5000, random_state=1)
     fig = px.scatter(
@@ -178,13 +335,13 @@ if sayfa == "🗺️ Harita":
     fig.update_layout(height=320, margin=dict(t=10, b=10), coloraxis_showscale=False)
     st.plotly_chart(fig, use_container_width=True)
 
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SAYFA 2 — ANALİZ
 # ═══════════════════════════════════════════════════════════════════════════════
 elif sayfa == "📈 Analiz":
     st.title("📈 Zaman & İstatistik Analizi")
 
-    # Yıllık bar
     yillik = f.resample("YE", on="eventDate").agg(
         Adet=("magnitude", "count"),
         OrtMw=("magnitude", "mean"),
@@ -204,7 +361,6 @@ elif sayfa == "📈 Analiz":
     col1, col2 = st.columns(2)
 
     with col1:
-        # Büyüklük histogram
         fig2 = px.histogram(
             f, x="magnitude", nbins=40,
             color_discrete_sequence=["#e74c3c"],
@@ -216,7 +372,6 @@ elif sayfa == "📈 Analiz":
         st.plotly_chart(fig2, use_container_width=True)
 
     with col2:
-        # Derinlik histogram
         fig3 = px.histogram(
             f, x="depth", nbins=40,
             color_discrete_sequence=["#3498db"],
@@ -227,7 +382,6 @@ elif sayfa == "📈 Analiz":
         fig3.update_layout(height=320, margin=dict(t=40, b=10))
         st.plotly_chart(fig3, use_container_width=True)
 
-    # Yıl × Ay ısı haritası
     st.subheader("Yıl × Ay Aktivite Haritası")
     hm = f.copy()
     hm["Yıl"] = hm["eventDate"].dt.year
@@ -243,7 +397,6 @@ elif sayfa == "📈 Analiz":
     fig4.update_layout(height=400, margin=dict(t=10, b=10))
     st.plotly_chart(fig4, use_container_width=True)
 
-    # Aylık çizgi
     aylik = f.resample("ME", on="eventDate").size().reset_index(name="Adet")
     fig5 = px.line(
         aylik, x="eventDate", y="Adet",
@@ -255,6 +408,7 @@ elif sayfa == "📈 Analiz":
     fig5.update_traces(fill="tozeroy", fillcolor="rgba(231,76,60,0.1)")
     fig5.update_layout(height=300, margin=dict(t=40, b=10))
     st.plotly_chart(fig5, use_container_width=True)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SAYFA 3 — VERİ
@@ -268,9 +422,9 @@ elif sayfa == "📊 Veri":
         gosterilen = gosterilen[gosterilen["location"].fillna("").str.contains(ara, case=False)]
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Kayıt",    f"{len(gosterilen):,}")
-    c2.metric("En Büyük", f"M {gosterilen['magnitude'].max():.1f}" if not gosterilen.empty else "—")
-    c3.metric("Ort. Derinlik", f"{gosterilen['depth'].mean():.0f} km" if not gosterilen.empty else "—")
+    c1.metric("Kayıt",         f"{len(gosterilen):,}")
+    c2.metric("En Büyük",      f"M {gosterilen['magnitude'].max():.1f}" if not gosterilen.empty else "—")
+    c3.metric("Ort. Derinlik", f"{gosterilen['depth'].mean():.0f} km"   if not gosterilen.empty else "—")
 
     tablo = gosterilen[["eventDate","latitude","longitude","depth","magnitude","location"]].rename(columns={
         "eventDate": "Tarih", "latitude": "Enlem", "longitude": "Boylam",
