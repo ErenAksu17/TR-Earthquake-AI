@@ -1,166 +1,215 @@
+<div align="center">
+
 # 🌍 TR Earthquake AI
 
-> **Türkiye Sismik Risk Analiz & Yapay Zeka Platformu**
+### Türkiye Deprem Analiz & Görselleştirme Platformu
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)](https://python.org)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-FF4B4B?logo=streamlit)](https://streamlit.io)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![Pandas](https://img.shields.io/badge/Pandas-2.0+-150458?style=for-the-badge&logo=pandas&logoColor=white)](https://pandas.pydata.org)
+[![License](https://img.shields.io/badge/Lisans-MIT-22c55e?style=for-the-badge)](LICENSE)
 
----
-
-## 🌐 Dil / Language / Lingua
-
-- [🇹🇷 Türkçe](#-türkçe)
-- [🇬🇧 English](#-english)
-- [🇮🇹 Italiano](#-italiano)
+*AFAD ve USGS verilerine dayanan, interaktif harita ve istatistiksel analizlerle Türkiye'deki sismik aktiviteyi görselleştiren açık kaynaklı bir platform.*
 
 ---
 
-## 🇹🇷 Türkçe
+![Dashboard Preview](https://img.shields.io/badge/Demo-Streamlit%20App-FF4B4B?style=flat-square&logo=streamlit)
 
-**TR Earthquake AI**, Türkiye'deki depremleri görselleştiren, zaman içindeki sismik aktiviteyi analiz eden ve makine öğrenmesiyle risk değerlendirmesi yapan interaktif bir veri platformudur.
+</div>
 
-### 🚀 Özellikler
+---
 
-| Özellik | Açıklama |
-|---------|----------|
-| 🗺️ **Deprem Haritası** | Kümeleme, ısı haritası veya bireysel işaretçi modlarıyla interaktif harita |
-| 🔥 **Isı Haritası** | Büyüklük ve derinlik bazlı yoğunluk haritaları |
-| 📈 **Zaman Analizi** | Yıllık/aylık frekans, mevsimsel ısı haritası, kümülatif grafik |
-| ⚠️ **Fay Risk Analizi** | Diri fay hatları bazında normalize edilmiş risk skorları |
-| 🤖 **ML Tahmin Modeli** | K-Means sismik zon kümeleme + Random Forest büyüklük sınıflandırması |
-| 📊 **Veri Kümesi** | Arama, filtreleme ve CSV indirme |
+## 📌 İçindekiler
 
-### 📊 Veri Kaynakları
+- [Özellikler](#-özellikler)
+- [Ekran Görüntüleri](#-ekran-görüntüleri)
+- [Kurulum](#️-kurulum)
+- [Kullanım](#-kullanım)
+- [Veri Kaynakları](#-veri-kaynakları)
+- [Proje Yapısı](#-proje-yapısı)
+- [Teknik Detaylar](#-teknik-detaylar)
+- [Katkıda Bulunma](#-katkıda-bulunma)
 
-- **AFAD** — Afet ve Acil Durum Yönetimi Başkanlığı (resmi Türkiye deprem verileri)
-- **USGS** — ABD Jeoloji Araştırmaları Kurumu (1900–1990 tarihi veriler)
-- **Diri Fay Veritabanı** — GeoJSON formatında Türkiye aktif fay hatları
+---
 
-### ⚙️ Kurulum
+## ✨ Özellikler
+
+### 🗺️ Deprem Haritası
+- **3 görünüm modu:** Kümeleme (hızlı), Isı Haritası ve Bireysel İşaretçi
+- Büyüklüğe göre renk kodlu noktalar (mavi → sarı → turuncu → kırmızı)
+- **Diri fay hatları** katmanı (açılıp kapatılabilir)
+- Popup'larda konum, tarih, büyüklük ve derinlik bilgisi
+- Karanlık harita teması (CartoDB DarkMatter)
+
+### 📈 Zaman & İstatistik Analizi
+- Yıllara göre deprem sayısı ve ortalama büyüklük
+- Aylık frekans grafiği (alan doldurmalı)
+- **Yıl × Ay aktivite ısı haritası** — hangi dönemlerin daha aktif olduğunu görün
+- Büyüklük ve derinlik dağılım histogramları
+
+### 📊 Veri Kümesi
+- Konum bazlı metin arama
+- Anlık istatistikler (kayıt sayısı, en büyük, ortalama derinlik)
+- Tüm filtrelenmiş veriyi **CSV olarak indir**
+
+### 🔍 Akıllı Filtreler
+- Tarih aralığı (1900'den bugüne kadar, her zaman güncel)
+- Büyüklük aralığı slider
+- Derinlik aralığı slider
+
+---
+
+## 🖥️ Ekran Görüntüleri
+
+| Harita — Kümeleme Modu | Analiz Sayfası |
+|------------------------|----------------|
+| Binlerce deprem noktası kümelenerek hızlı yüklenir | Yıllık bar + yıl×ay ısı haritası |
+
+---
+
+## ⚙️ Kurulum
+
+### Gereksinimler
+- Python 3.10 veya üzeri
+- Git
+
+### Adım Adım
 
 ```bash
-# 1. Repo'yu klonla
+# 1. Repoyu klonla
 git clone https://github.com/ErenAksu17/TR-Earthquake-AI.git
 cd TR-Earthquake-AI
 
 # 2. Sanal ortam oluştur
 python -m venv .venv
-.\.venv\Scripts\activate      # Windows
-# source .venv/bin/activate   # Linux/Mac
 
-# 3. Bağımlılıkları yükle
+# 3. Sanal ortamı aktifleştir
+# Windows:
+.\.venv\Scripts\Activate.ps1
+# Linux / macOS:
+source .venv/bin/activate
+
+# 4. Bağımlılıkları yükle
 pip install -r requirements.txt
 ```
 
-### ▶️ Uygulamayı Başlat
+---
+
+## ▶️ Kullanım
 
 ```bash
 streamlit run app/dashboard.py
 ```
 
-### 🧪 Testleri Çalıştır
+Tarayıcı otomatik açılır → `http://localhost:8501`
+
+### Sidebar Filtreleri
+1. Sol menüden sayfa seç (Harita / Analiz / Veri)
+2. Tarih aralığı, büyüklük ve derinlik filtrelerini ayarla
+3. Harita sayfasında görünüm modu ve fay katmanını seç
+
+---
+
+## 📊 Veri Kaynakları
+
+| Kaynak | Kapsam | Format |
+|--------|--------|--------|
+| **AFAD** — Afet ve Acil Durum Yönetimi Başkanlığı | 1990'dan günümüze, Türkiye | REST API |
+| **USGS** — ABD Jeoloji Araştırmaları Kurumu | 1900–1990, küresel (M≥5) | GeoJSON API |
+| **Diri Fay Veritabanı** | Türkiye aktif fay hatları | GeoJSON |
+
+> Veriler `src/fetch_afad.py` ve `src/fetch_usgs.py` modülleri ile yeniden çekilebilir.
+
+---
+
+## 📁 Proje Yapısı
+
+```
+TR-Earthquake-AI/
+│
+├── app/
+│   └── dashboard.py          ← Ana Streamlit uygulaması
+│
+├── src/
+│   ├── config.py             ← Merkezi konfigürasyon (yollar, sabitler)
+│   ├── fetch_afad.py         ← AFAD API veri çekici (retry + logging)
+│   ├── fetch_usgs.py         ← USGS veri çekici
+│   ├── merge_datasets.py     ← AFAD + USGS birleştirici
+│   ├── preprocess.py         ← Veri temizleme ve standardizasyon
+│   ├── ml_model.py           ← K-Means kümeleme + Random Forest pipeline
+│   ├── fay_risk_analiz.py    ← Fay hattı bazlı risk skorlama
+│   └── visualization.py      ← Matplotlib yardımcıları
+│
+├── data/
+│   ├── merged_quakes.xlsx    ← Birleştirilmiş deprem verisi
+│   ├── diri_faylar.geojson   ← Türkiye aktif fay hatları (~12 MB)
+│   └── fay_risk_skorlari.csv ← Hesaplanmış fay risk skorları
+│
+├── tests/
+│   └── test_preprocess.py    ← Birim testler (pytest)
+│
+├── .streamlit/
+│   └── config.toml           ← Dark tema & renk ayarları
+│
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## 🔧 Teknik Detaylar
+
+### Hız Optimizasyonları
+- `@st.cache_data` — veri dosyaları ve grafikler önbelleklenir
+- `@st.cache_resource` — 12 MB GeoJSON yalnızca bir kez yüklenir
+- `FastMarkerCluster` — binlerce nokta tarayıcı tarafında kümelenir
+- Büyük veri setlerinde otomatik örnekleme (scatter için max 5.000 nokta)
+
+### Veri Pipeline
+```
+AFAD API ──┐
+           ├──► merge_datasets.py ──► preprocess.py ──► merged_quakes.xlsx
+USGS API ──┘                                                    │
+                                                                ▼
+diri_faylar.geojson ──────────────────────────────► dashboard.py (Streamlit)
+```
+
+### Risk Skorlama Formülü
+```
+Risk Skoru = (Deprem Sayısı × Ortalama Mw) / (Yıl Geçti + 1)
+```
+Normalize edilmiş skor: 0–100 arası görsel karşılaştırma için.
+
+---
+
+## 🧪 Testler
 
 ```bash
 pip install pytest
 pytest tests/ -v
 ```
 
-### 📁 Proje Yapısı
+---
 
-```
-TR-Earthquake-AI/
-├── app/
-│   └── dashboard.py          # Ana Streamlit uygulaması
-├── src/
-│   ├── config.py             # Merkezi konfigürasyon
-│   ├── fetch_afad.py         # AFAD API veri çekici
-│   ├── fetch_usgs.py         # USGS veri çekici
-│   ├── merge_datasets.py     # Veri birleştirici
-│   ├── preprocess.py         # Veri temizleme
-│   ├── ml_model.py           # K-Means + Random Forest ML pipeline
-│   ├── fay_risk_analiz.py    # Fay hattı risk skorlama
-│   └── visualization.py      # Çizim yardımcıları
-├── data/                     # Veri dosyaları (xlsx, geojson, csv)
-├── tests/                    # Birim testler
-├── .streamlit/
-│   └── config.toml           # Dark tema konfigürasyonu
-└── requirements.txt
-```
+## 🤝 Katkıda Bulunma
 
-### ⚠️ Not
-
-Bu proje akademik veya bilimsel doğruluk iddiası taşımaz. Geliştirme, görselleştirme ve deney amaçlıdır. Risk skorları deneysel hesaplamaya dayanır.
+1. Fork'la
+2. Yeni branch oluştur (`git checkout -b feature/yeni-ozellik`)
+3. Değişikliklerini commit et
+4. Push et ve Pull Request aç
 
 ---
 
-## 🇬🇧 English
+## ⚠️ Sorumluluk Reddi
 
-**TR Earthquake AI** is an interactive data platform for visualizing Turkish earthquakes, analyzing seismic activity over time, and performing AI-powered risk assessment.
-
-### 🚀 Features
-
-| Feature | Description |
-|---------|-------------|
-| 🗺️ **Earthquake Map** | Interactive map with cluster, heatmap, or individual marker modes |
-| 🔥 **Heatmap** | Magnitude and depth-based density maps |
-| 📈 **Time Analysis** | Yearly/monthly frequency, seasonal heatmap, cumulative chart |
-| ⚠️ **Fault Risk Analysis** | Normalized risk scores per active fault line |
-| 🤖 **ML Model** | K-Means seismic zone clustering + Random Forest magnitude classification |
-| 📊 **Dataset** | Search, filter, and CSV download |
-
-### 📊 Data Sources
-
-- **AFAD** — Turkish Disaster and Emergency Authority (official earthquake data)
-- **USGS** — United States Geological Survey (1900–1990 historical data)
-- **Active Fault Database** — Turkey active fault lines in GeoJSON format
-
-### ⚙️ Setup
-
-```bash
-git clone https://github.com/ErenAksu17/TR-Earthquake-AI.git
-cd TR-Earthquake-AI
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### ▶️ Run
-
-```bash
-streamlit run app/dashboard.py
-```
-
-### ⚠️ Note
-
-This project does not claim scientific or academic accuracy. It is for development, visualization, and experimentation purposes only.
+Bu proje **akademik veya bilimsel doğruluk iddiası taşımaz.**
+Tamamen geliştirme, görselleştirme ve deney amaçlıdır.
+Risk skorları istatistiksel hesaplamaya dayanır; resmi bir deprem tahmini değildir.
 
 ---
 
-## 🇮🇹 Italiano
+<div align="center">
 
-**TR Earthquake AI** è una piattaforma dati interattiva per visualizzare i terremoti in Turchia, analizzare l'attività sismica nel tempo ed eseguire valutazioni del rischio tramite AI.
+**ErenAksu17** tarafından geliştirildi &nbsp;•&nbsp; Veriler: AFAD & USGS
 
-### 🚀 Caratteristiche
-
-- 🗺️ Mappa interattiva con modalità cluster, heatmap e marker individuali
-- 🔥 Mappe di densità per magnitudo e profondità
-- 📈 Analisi temporale: frequenza annuale/mensile, stagionale, cumulativa
-- ⚠️ Punteggi di rischio per faglia attiva
-- 🤖 Clustering K-Means + classificazione Random Forest
-- 📊 Dataset ricercabile con download CSV
-
-### ⚙️ Installazione
-
-```bash
-git clone https://github.com/ErenAksu17/TR-Earthquake-AI.git
-cd TR-Earthquake-AI
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-streamlit run app/dashboard.py
-```
-
-### ⚠️ Nota
-
-Questo progetto non pretende accuratezza scientifica. È sviluppato a scopo sperimentale e di visualizzazione.
+</div>
