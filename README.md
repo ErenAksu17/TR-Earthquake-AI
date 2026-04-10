@@ -9,7 +9,7 @@
 [![Pandas](https://img.shields.io/badge/Pandas-2.0+-150458?style=for-the-badge&logo=pandas&logoColor=white)](https://pandas.pydata.org)
 [![License](https://img.shields.io/badge/Lisans-MIT-22c55e?style=for-the-badge)](LICENSE)
 
-*AFAD ve USGS verilerine dayanan, interaktif harita ve istatistiksel analizlerle Türkiye'deki sismik aktiviteyi görselleştiren açık kaynaklı bir platform.*
+*Kandilli Rasathanesi, AFAD ve USGS verilerini birleştiren; gerçek zamanlı deprem takibi, interaktif harita ve istatistiksel analizler sunan açık kaynaklı bir platform.*
 
 ---
 
@@ -22,7 +22,6 @@
 ## 📌 İçindekiler
 
 - [Özellikler](#-özellikler)
-- [Ekran Görüntüleri](#-ekran-görüntüleri)
 - [Kurulum](#️-kurulum)
 - [Kullanım](#-kullanım)
 - [Veri Kaynakları](#-veri-kaynakları)
@@ -33,6 +32,13 @@
 ---
 
 ## ✨ Özellikler
+
+### 🔴 Canlı Veriler *(Yeni)*
+- **Kandilli Rasathanesi & AFAD** gerçek zamanlı verisi — her 60 saniyede güncellenir
+- Kaynak seçimi: Kandilli / AFAD / Tümü
+- Son 24 saatin depremleri harita + tablo olarak yan yana
+- Saatlik dağılım grafiği, API durum göstergesi, manuel yenile butonu
+- En yakın il/şehir bilgisi otomatik gelir
 
 ### 🗺️ Deprem Haritası
 - **3 görünüm modu:** Kümeleme (hızlı), Isı Haritası ve Bireysel İşaretçi
@@ -56,14 +62,6 @@
 - Tarih aralığı (1900'den bugüne kadar, her zaman güncel)
 - Büyüklük aralığı slider
 - Derinlik aralığı slider
-
----
-
-## 🖥️ Ekran Görüntüleri
-
-| Harita — Kümeleme Modu | Analiz Sayfası |
-|------------------------|----------------|
-| Binlerce deprem noktası kümelenerek hızlı yüklenir | Yıllık bar + yıl×ay ısı haritası |
 
 ---
 
@@ -112,13 +110,15 @@ Tarayıcı otomatik açılır → `http://localhost:8501`
 
 ## 📊 Veri Kaynakları
 
-| Kaynak | Kapsam | Format |
-|--------|--------|--------|
-| **AFAD** — Afet ve Acil Durum Yönetimi Başkanlığı | 1990'dan günümüze, Türkiye | REST API |
-| **USGS** — ABD Jeoloji Araştırmaları Kurumu | 1900–1990, küresel (M≥5) | GeoJSON API |
-| **Diri Fay Veritabanı** | Türkiye aktif fay hatları | GeoJSON |
+| Kaynak | Kapsam | Güncelleme |
+|--------|--------|------------|
+| **Kandilli Rasathanesi** — Boğaziçi Üniversitesi | Gerçek zamanlı, Türkiye | Her dakika |
+| **AFAD** — Afet ve Acil Durum Yönetimi Başkanlığı | Gerçek zamanlı + arşiv | Her dakika |
+| **USGS** — ABD Jeoloji Araştırmaları Kurumu | 1900–1990 arşiv (M≥5) | Statik |
+| **Diri Fay Veritabanı** | Türkiye aktif fay hatları | Statik |
 
-> Veriler `src/fetch_afad.py` ve `src/fetch_usgs.py` modülleri ile yeniden çekilebilir.
+> Canlı veriler `src/fetch_kandilli.py` üzerinden otomatik çekilir.  
+> Arşiv verisi `src/fetch_afad.py` ve `src/fetch_usgs.py` ile yeniden indirilebilir.
 
 ---
 
@@ -132,8 +132,9 @@ TR-Earthquake-AI/
 │
 ├── src/
 │   ├── config.py             ← Merkezi konfigürasyon (yollar, sabitler)
-│   ├── fetch_afad.py         ← AFAD API veri çekici (retry + logging)
-│   ├── fetch_usgs.py         ← USGS veri çekici
+│   ├── fetch_kandilli.py     ← Kandilli & AFAD gerçek zamanlı API (YENİ)
+│   ├── fetch_afad.py         ← AFAD arşiv veri çekici (retry + logging)
+│   ├── fetch_usgs.py         ← USGS arşiv veri çekici
 │   ├── merge_datasets.py     ← AFAD + USGS birleştirici
 │   ├── preprocess.py         ← Veri temizleme ve standardizasyon
 │   ├── ml_model.py           ← K-Means kümeleme + Random Forest pipeline
@@ -210,6 +211,6 @@ Risk skorları istatistiksel hesaplamaya dayanır; resmi bir deprem tahmini değ
 
 <div align="center">
 
-**ErenAksu17** tarafından geliştirildi &nbsp;•&nbsp; Veriler: AFAD & USGS
+**ErenAksu17** tarafından geliştirildi &nbsp;•&nbsp; Veriler: Kandilli Rasathanesi · AFAD · USGS
 
 </div>
