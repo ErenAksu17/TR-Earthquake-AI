@@ -255,6 +255,13 @@ def validate_aftershock_forecasts(catalog: pd.DataFrame, min_mag: float = 6.0,
         total_exp = sum(t["expected"] for t in tested)
         total_obs = sum(t["observed"] for t in tested)
         under = sum(1 for t in tested if t["observed"] > t["expected"])
+
+        # Operasyonel tahmin ölçütleri — Poisson N-testi artçı kümelenmesi
+        # (aşırı saçılım) yüzünden fazla katıdır; bunlar onu tamamlar.
+        ratios = [t["observed"] / t["expected"] for t in tested if t["expected"] > 0]
+        within2 = sum(1 for r in ratios if 0.5 <= r <= 2.0)
+        log_ratios = [np.log10(r) for r in ratios if r > 0]
+
         summary.update({
             "passed": passed,
             "pass_rate": round(passed / len(tested), 3),
@@ -262,12 +269,19 @@ def validate_aftershock_forecasts(catalog: pd.DataFrame, min_mag: float = 6.0,
             "total_observed": total_obs,
             "ratio_observed_expected": round(total_obs / total_exp, 3) if total_exp > 0 else None,
             "under_forecast_count": under,
+            "within_factor_2": within2,
+            "within_factor_2_rate": round(within2 / len(ratios), 3) if ratios else None,
+            "median_log10_ratio": round(float(np.median(log_ratios)), 3) if log_ratios else None,
+            "dispersion_index": round(float(np.var(ratios, ddof=1)), 3) if len(ratios) > 1 else None,
         })
     summary["caveats"] = [
         "Model yalnızca öğrenme penceresindeki veriyle kurulur; gelecekteki "
         "veri kullanılmaz (sözde-ileriye dönük test).",
-        "N-testi Poisson varsayar; artçılar kümelendiği için gerçek saçılım daha "
-        "geniştir, dolayısıyla test olduğundan biraz katıdır.",
-        "Katalog tamlığı geçmişe gittikçe düşer; eski dizilerde artçı sayısı eksik olabilir.",
+        "ÖLÇÜLDÜ: Poisson N-testi bu diziler için fazı katıdır. Artçılar kümelenmiş "
+        "olduğundan gerçek saçılım Poisson'dan geniştir; beklenen sayı büyüdükçe test "
+        "bandı daralır ve toplam kalibrasyon iyi olsa bile tek tek diziler reddedilir. "
+        "Bu yüzden 'iki kat içinde' oranı ve toplam gözlenen/beklenen oranı birlikte okunmalıdır.",
+        "Katalog tamlığı zamanla değişir (2005 öncesi M≥4, sonrası M≥3); eski dizilerde "
+        "artçı sayısı eksik olabilir.",
     ]
     return summary

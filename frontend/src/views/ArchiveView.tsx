@@ -4,11 +4,12 @@ import L from "leaflet"
 import "leaflet.heat"
 import { Bar } from "react-chartjs-2"
 import { CalendarRange, Database, Download, Layers, Ruler, TrendingUp } from "lucide-react"
-import { api, type QuakesResponse, type StatsResponse } from "@/lib/api"
+import { api, type CatalogCompleteness, type QuakesResponse, type StatsResponse } from "@/lib/api"
 import { baseChartOptions, fmtNum, magColor, fmtTime } from "@/lib/seismic"
 import { loadFaults, faultStyle, useLeafletMap } from "@/hooks/useLeafletMap"
 import { StatCard, StatGrid } from "@/components/StatCard"
 import { Toolbar, Field } from "@/components/Toolbar"
+import { InfoNote } from "@/components/InfoNote"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -33,6 +34,7 @@ export function ArchiveView() {
 
   const [data, setData] = useState<QuakesResponse | null>(null)
   const [stats, setStats] = useState<StatsResponse | null>(null)
+  const [completeness, setCompleteness] = useState<CatalogCompleteness | null>(null)
 
   const { ref, map } = useLeafletMap([39, 35], 6)
   const layer = useRef<L.Layer | null>(null)
@@ -54,6 +56,7 @@ export function ArchiveView() {
   }, [start, end, minMag, maxMag, minDepth, maxDepth, q])
 
   useEffect(() => { apply() }, [apply])
+  useEffect(() => { api.completeness().then(setCompleteness).catch(() => {}) }, [])
 
   useEffect(() => {
     if (!map.current) return
@@ -103,6 +106,18 @@ export function ArchiveView() {
 
   return (
     <div className="flex flex-col gap-4">
+      {completeness && (
+        <InfoNote title="Katalog tamlığı zamanla değişir" tone="warning">
+          {completeness.eras.map((e) => (
+            <span key={e.label} className="mr-4 inline-block">
+              <b>{e.label}</b> {e.start}–{e.end}: M ≥ {e.nominal_min_mag.toFixed(1)}
+              <span className="text-muted-foreground"> ({e.records.toLocaleString("tr-TR")} kayıt)</span>
+            </span>
+          ))}
+          <br />
+          {completeness.warning}
+        </InfoNote>
+      )}
       <Toolbar>
         <Field label="Başlangıç">
           <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="w-[150px]" />

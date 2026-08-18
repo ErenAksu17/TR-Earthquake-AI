@@ -267,3 +267,17 @@ class TestValidationEndpoints:
 
     def test_aftershock_rejects_bad_window(self, client):
         assert client.get("/api/validation/aftershock?learn_days=0").status_code == 422
+
+
+class TestCatalogCompleteness:
+
+    def test_completeness_eras(self, client):
+        r = client.get("/api/catalog/completeness")
+        assert r.status_code == 200
+        b = r.json()
+        assert len(b["eras"]) == 2
+        assert sum(e["records"] for e in b["eras"]) == b["total"]
+        # Modern dönem daha düşük eşikte ve daha çok kayıt içermeli
+        historic, modern = b["eras"]
+        assert modern["nominal_min_mag"] < historic["nominal_min_mag"]
+        assert "karşılaştırılamaz" in b["warning"]

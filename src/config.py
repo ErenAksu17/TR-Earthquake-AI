@@ -106,3 +106,11 @@ VALIDATION = {
     "n_test_alpha": 0.025,     # CSEP N-testi tek kuyruk eşiği (çift taraflı %5)
     "target_offset": 0.0,      # test hedefi = Mc (tamlık eşiği — en yüksek istatistik güç)
 }
+
+# Katalog derinleştirme — modern dönemde daha düşük büyüklük eşiği
+# Tamlık zamanla değişir: bu yıldan öncesi M≥4.0, sonrası M≥min_mag.
+DEEPEN = {
+    "start_year": 2005,
+    "end_year":   2026,
+    "min_mag":    3.0,
+}

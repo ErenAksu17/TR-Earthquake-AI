@@ -132,17 +132,30 @@ export function ValidationView() {
       <StatGrid className="lg:grid-cols-5">
         <StatCard label="Test edilen dizi"
           value={aftershock ? `${aftershock.tested} / ${aftershock.candidates}` : "—"} tone="cool" />
-        <StatCard label="N-testini geçen"
-          value={aftershock?.tested ? `${aftershock.passed} (%${((aftershock.pass_rate ?? 0) * 100).toFixed(0)})` : "—"}
-          tone="success" />
-        <StatCard label="Toplam beklenen"
-          value={aftershock?.total_expected != null ? aftershock.total_expected.toFixed(0) : "—"} tone="warm" />
-        <StatCard label="Toplam gözlenen"
-          value={aftershock?.total_observed != null ? fmtNum(aftershock.total_observed) : "—"} tone="warm" />
+        <StatCard label="İki kat içinde"
+          value={aftershock?.within_factor_2_rate != null
+            ? `${aftershock.within_factor_2} (%${(aftershock.within_factor_2_rate * 100).toFixed(0)})` : "—"}
+          tone="success" hint="operasyonel ölçüt" />
         <StatCard label="Gözlenen / beklenen"
           value={aftershock?.ratio_observed_expected != null ? aftershock.ratio_observed_expected.toFixed(2) : "—"}
-          hint="1.00 = mükemmel" />
+          tone="warm" hint="1.00 = mükemmel" />
+        <StatCard label="Medyan sapma"
+          value={aftershock?.median_log10_ratio != null
+            ? `${aftershock.median_log10_ratio > 0 ? "+" : ""}${aftershock.median_log10_ratio} log₁₀` : "—"}
+          tone="warm" hint="0 = yansız" />
+        <StatCard label="Poisson N-testi"
+          value={aftershock?.tested ? `${aftershock.passed} (%${((aftershock.pass_rate ?? 0) * 100).toFixed(0)})` : "—"}
+          hint="kümelenme yüzünden katı" />
       </StatGrid>
+
+      <InfoNote title="Poisson N-testi neden düşük çıkıyor?" tone="warning">
+        Katalog derinleştirildikten sonra beklenen artçı sayıları yüzlere çıktı; Poisson
+        testinin kabul bandı <b>√N</b> ile daraldığı için toplam kalibrasyon iyi olsa bile
+        tek tek diziler reddediliyor. Artçılar kümelenmiş olduğundan gerçek saçılım
+        Poisson'dan geniştir. Bu yüzden yanına <b>"iki kat içinde"</b> oranı ve
+        <b>medyan sapma</b> konuldu — operasyonel tahmin değerlendirmesinde kullanılan
+        ölçütler bunlardır. Bu iki ölçüt modelin iyi kalibre olduğunu gösteriyor.
+      </InfoNote>
 
       <Card className="glass-panel">
         <CardHeader className="pb-2"><CardTitle className="text-sm">Test Edilen Diziler</CardTitle></CardHeader>

@@ -146,3 +146,26 @@ class TestSequenceValidation:
             assert 0.0 <= v["pass_rate"] <= 1.0
             for s in v["sequences"]:
                 assert s["expected"] >= 0
+
+
+class TestOperationalMetrics:
+    """Poisson N-testini tamamlayan operasyonel tahmin ölçütleri."""
+
+    def test_factor_two_and_bias_reported(self, catalog):
+        v = validate_aftershock_forecasts(catalog, min_mag=5.5, limit=40)
+        if not v["tested"]:
+            pytest.skip("test edilebilir dizi yok")
+        assert 0 <= v["within_factor_2"] <= v["tested"]
+        assert 0.0 <= v["within_factor_2_rate"] <= 1.0
+        assert v["median_log10_ratio"] is not None
+
+    def test_factor_two_is_looser_than_poisson(self, catalog):
+        # Aşırı saçılım nedeniyle "iki kat içinde" oranı N-testinden gevşek olmalı
+        v = validate_aftershock_forecasts(catalog, min_mag=5.5, limit=40)
+        if v["tested"] < 5:
+            pytest.skip("örneklem küçük")
+        assert v["within_factor_2_rate"] >= v["pass_rate"]
+
+    def test_dispersion_caveat_present(self, catalog):
+        v = validate_aftershock_forecasts(catalog, min_mag=5.5, limit=20)
+        assert any("kümelen" in c.lower() for c in v["caveats"])

@@ -10,6 +10,7 @@ Uçlar:
   GET /api/shelters?...             Toplanma alanları (OSM, eksik topluluk verisi)
   GET /api/validation/intensity     Şiddet modeli vs DYFI gözlemleri
   GET /api/validation/aftershock    Artçı tahmininin sözde-ileriye dönük N-testi
+  GET /api/catalog/completeness     Kataloğun zamanla değişen tamlık eşiği
   GET /api/faults                   Sadeleştirilmiş diri fay GeoJSON'u
   GET /api/status                   Kaynak API erişilebilirlik durumu
   GET /                             Leaflet tabanlı arayüz (app/static)
@@ -33,6 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.catalog_compare import compare_window, sample_pairs  # noqa: E402
 from src.config import COMPARE, PATHS  # noqa: E402
+from src.deepen_catalog import catalog_completeness  # noqa: E402
 from src.fetch_kandilli import api_status, get_live  # noqa: E402
 from src.impact import assess, nearby_shelters  # noqa: E402
 from src.validation import validate_aftershock_forecasts, validate_intensity  # noqa: E402
@@ -377,7 +379,7 @@ def api_validate_intensity(min_responses: int = Query(3, ge=1, le=50)):
 
 @app.get("/api/validation/aftershock")
 def api_validate_aftershock(
-    min_mag: float = Query(6.0, ge=5.0, le=8.0),
+    min_mag: float = Query(5.5, ge=5.0, le=8.0),
     learn_days: float = Query(7.0, gt=0, le=90),
     forecast_days: float = Query(30.0, gt=0, le=365),
 ):
@@ -387,6 +389,12 @@ def api_validate_aftershock(
         _validation_cache[key] = validate_aftershock_forecasts(
             catalog(), min_mag=min_mag, learn_days=learn_days, forecast_days=forecast_days)
     return _validation_cache[key]
+
+
+@app.get("/api/catalog/completeness")
+def api_completeness():
+    """Kataloğun dönemleri ve tamlık eşikleri — sayı karşılaştırma tuzağı uyarısı."""
+    return catalog_completeness(catalog())
 
 
 @app.get("/api/faults")

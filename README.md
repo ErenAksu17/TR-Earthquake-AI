@@ -39,7 +39,7 @@
 - Harita + son depremler listesi yan yana; listeden tıklayınca harita odaklanır
 
 ### 🗺️ Arşiv & Analiz
-- 1900'den bugüne **6.600+ tekilleştirilmiş kayıt** (M ≥ 4)
+- 1900'den bugüne **59.000+ tekilleştirilmiş kayıt**
 - İşaretçi ve ısı haritası görünümleri, **diri fay hatları** katmanı
 - Tarih / büyüklük / derinlik / konum filtreleri
 - Yıllık deprem sayısı + en büyük deprem grafiği, büyüklük ve derinlik dağılımları
@@ -98,8 +98,12 @@ Bu proje kendi tahminlerini test eder ve sonucu — modelin lehine olmasa bile �
   ±1 MMI içinde. Bu, denklemin kendi yayımlanmış belirsizliğiyle (σ≈0,8–1,2) uyumlu.
 - **Artçı şok tahmini — sözde-ileriye dönük N-testi:** model dizinin yalnızca
   ilk 7 gününe bakarak kurulur, sonraki 30 gün tahmin edilip gerçekleşenle
-  kıyaslanır (geleceğe bakılmaz). Test edilebilen 5 dizinin **4'ü CSEP N-testini
-  geçti**; toplam beklenen 105, gözlenen 121 (oran 1,16).
+  kıyaslanır (geleceğe bakılmaz). **21 dizi** test edilir:
+  → dizilerin **%86'sı iki kat içinde**, medyan sapma ≈ **0** (log₁₀ oran −0,01),
+  toplam gözlenen/beklenen **0,89**
+  → Poisson N-testini yalnızca %38'i geçer — çünkü artçılar kümelenmiştir ve
+  gerçek saçılım Poisson'dan geniştir; beklenen sayı büyüdükçe test bandı
+  daralır. Bu, **modelin değil testin** katılığıdır ve arayüzde açıklanır.
 
 > **Doğrulamanın düzelttiği bir iddia:** Faz 4'te "nokta kaynak varsayımı yakın
 > alanda şiddeti *az* tahmin eder" yazmıştık. Ölçüm bunu desteklemedi — model
@@ -107,7 +111,11 @@ Bu proje kendi tahminlerini test eder ve sonucu — modelin lehine olmasa bile �
 > ediyor. İddia, ölçülen değerle değiştirildi.
 
 ### 🧭 Veri Kalitesi
-- **16.150+ kayıt** (M ≥ 4, 1900–2025), EventID bazlı tekilleştirme
+- **59.000+ kayıt**, EventID bazlı tekilleştirme. Katalog eşiği zamanla değişir:
+  **1900–2004 → M ≥ 4.0**, **2005–bugün → M ≥ 3.0** (AFAD yoğun ağ dönemi)
+- ⚠️ Dönemler arası ham deprem *sayısı* karşılaştırılamaz — artan şey algılama
+  kabiliyetidir, sismik etkinlik değil. Arayüz bu uyarıyı gösterir; büyüklük-frekans
+  analizleri her pencerede Mc'yi veriden kestirdiği için bundan etkilenmez
 - Ham veri iki sistematik bozulma içerir, ikisi de pipeline'da düzeltilir:
   tarihler `DD/MM/YYYY` metin biçimindedir (varsayılan ayrıştırma 6 Şubat'ı
   2 Haziran yapar) ve aynı deprem farklı dosyalarda UTC/TSİ olarak çiftlenir
@@ -182,7 +190,8 @@ cd frontend && npm install && npm run dev
 | `GET /api/impact?mag=&lat=&lon=&depth=` | Sarsıntı şiddeti (MMI) ve yerleşim maruziyeti |
 | `GET /api/shelters?lat=&lon=&radius_km=` | Toplanma alanları (OSM, eksik) |
 | `GET /api/validation/intensity` | Şiddet modeli vs DYFI gözlemleri |
-| `GET /api/validation/aftershock` | Artçı tahmininin N-testi sonuçları |
+| `GET /api/validation/aftershock` | Artçı tahmininin N-testi + operasyonel ölçütler |
+| `GET /api/catalog/completeness` | Kataloğun dönemleri ve tamlık eşikleri |
 
 Tüm zamanlar **UTC (ISO 8601, `Z` sonekli)** döner; yerel saate çeviri istemcinin işidir.
 
@@ -236,7 +245,8 @@ TR-Earthquake-AI/
 │   ├── impact.py             ← Şiddet denklemi (IPE) + yerleşim maruziyeti (YENİ)
 │   ├── prepare_exposure.py   ← Yerleşim ve toplanma alanı verisi hazırlar
 │   ├── validation.py         ← Model doğrulama: DYFI kıyası + N-testi (YENİ)
-│   ├── prepare_validation.py ← USGS DYFI gözlemlerini indirir (YENİ)
+│   ├── prepare_validation.py ← USGS DYFI gözlemlerini indirir
+│   ├── deepen_catalog.py     ← Modern dönemi M≥3'e derinleştirir (YENİ)
 │   └── fay_risk_analiz.py    ← Fay bazlı aktivite skoru (metrik CRS, en-yakın-fay ataması)
 │
 ├── data/
@@ -244,7 +254,7 @@ TR-Earthquake-AI/
 │   ├── diri_faylar_simplified.geojson ← Web için sadeleştirilmiş faylar (~0,2 MB)
 │   └── diri_faylar.geojson   ← Orijinal fay veritabanı (~12 MB)
 │
-├── tests/                    ← pytest (pipeline + API + sismoloji + karşılaştırma + etki + doğrulama, 135 test)
+├── tests/                    ← pytest (pipeline + API + sismoloji + karşılaştırma + etki + doğrulama, 139 test)
 ├── .github/workflows/ci.yml  ← GitHub Actions (her push'ta testler)
 ├── requirements.txt
 └── README.md
