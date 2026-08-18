@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
+import pytest
 
 from src.pipeline import clean, deduplicate, to_utc_naive
 
@@ -89,6 +90,65 @@ class TestUTCNormalization:
         s = to_utc_naive(aware)
         assert s.iloc[0] == pd.Timestamp("2024-06-15 12:00:00")
         assert s.dt.tz is None
+
+
+class TestCatalogIntegrity:
+    """Bilinen depremlerin doğru tarih ve UTC saatinde olduğunu doğrular.
+
+    Ham veri DD/MM/YYYY metin biçimindedir ve dosyalar arasında saat dilimi
+    tutarsızlığı vardır; bu testler o iki bozulmanın geri dönmesini engeller.
+    """
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def catalog(cls):
+        from src.pipeline import load_merged
+        return load_merged()
+
+    # (tarih, büyüklük alt sınırı, konum anahtar kelimesi) — gerçek UTC origin zamanları
+    KNOWN = [
+        ("2023-02-06 01:17:32", 7.5, "Pazarcık"),      # Kahramanmaraş M7.7
+        ("2023-02-06 10:24:47", 7.5, "Elbistan"),      # ikinci ana şok
+        ("1999-08-17 00:01:39", 7.4, "Gölcük"),        # Kocaeli M7.6
+    ]
+
+    @pytest.mark.parametrize("when,min_mag,place", KNOWN)
+    def test_known_event_present_at_utc_time(self, catalog, when, min_mag, place):
+        t = pd.Timestamp(when)
+        window = catalog[
+            (catalog["eventDate"] >= t - pd.Timedelta(minutes=2))
+            & (catalog["eventDate"] <= t + pd.Timedelta(minutes=2))
+            & (catalog["magnitude"] >= min_mag)
+        ]
+        assert len(window) >= 1, f"{place} depremi {when} UTC'de bulunamadı"
+        assert window["location"].str.contains(place, case=False).any()
+
+    def test_no_duplicate_event_ids(self, catalog):
+        if "event_id" in catalog.columns:
+            assert not catalog["event_id"].duplicated().any()
+
+    def test_kahramanmaras_sequence_is_dense(self, catalog):
+        # Ana şoktan sonraki ilk gün yüzlerce artçı içermeli; tarih ayrıştırma
+        # bozulursa bu dizi tamamen boşalır
+        t0 = pd.Timestamp("2023-02-06 01:17:32")
+        first_day = catalog[
+            (catalog["eventDate"] > t0) & (catalog["eventDate"] <= t0 + pd.Timedelta(days=1))
+        ]
+        assert len(first_day) > 100
+
+    def test_no_timezone_shifted_twins(self, catalog):
+        # Aynı deprem hem UTC hem TSİ kaydedilirse tam 3 saat arayla, aynı
+        # konumda, aynı büyüklükte bir ikiz oluşur
+        big = catalog[catalog["magnitude"] >= 6.5]
+        twins = 0
+        for _, row in big.iterrows():
+            shifted = catalog[
+                (catalog["eventDate"] == row["eventDate"] + pd.Timedelta(hours=3))
+                & (catalog["magnitude"] == row["magnitude"])
+                & (abs(catalog["latitude"] - row["latitude"]) < 0.01)
+            ]
+            twins += len(shifted)
+        assert twins == 0, f"{twins} adet saat dilimi ikizi bulundu"
 
 
 class TestClean:

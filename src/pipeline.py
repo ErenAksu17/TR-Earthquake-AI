@@ -149,6 +149,69 @@ def load_merged(path: str = None) -> pd.DataFrame:
     raise FileNotFoundError(f"Katalog bulunamadı: {path}")
 
 
+def rebuild_from_raw(folder: str = None, output: str = None) -> pd.DataFrame:
+    """Ham AFAD Excel dışa aktarımlarından kataloğu doğru şekilde yeniden inşa et.
+
+    Ham veride iki sistematik bozulma vardır:
+
+    1. Tarihler `DD/MM/YYYY` biçiminde metin olarak tutulur. Varsayılan pandas
+       parse'ı bunları ay/gün sanır; günü ≤12 olan HER kayıt yanlış tarihe
+       kayar (6 Şubat 2023 → 2 Haziran 2023), günü >12 olanlar doğru kalır.
+       Bu yüzden `dayfirst=True` zorunludur.
+
+    2. Aynı deprem (aynı EventID) farklı dosyalarda farklı saat dilimlerinde
+       dışa aktarılmıştır — bir kısmı UTC, bir kısmı TSİ (UTC+3). Türkiye
+       her zaman UTC'nin ilerisinde olduğundan, bir EventID için kayıtlı en
+       erken zaman UTC kabul edilir.
+
+    EventID tekilleştirme için birincil anahtardır.
+    """
+    import glob
+
+    folder = folder or os.path.dirname(PATHS["merged"])
+    output = output or PATHS["merged"]
+
+    files = sorted(glob.glob(os.path.join(folder, "Earthquake*.xlsx")))
+    if not files:
+        raise FileNotFoundError(f"Ham Excel dosyası bulunamadı: {folder}")
+
+    frames = []
+    for path in files:
+        raw = pd.read_excel(path)
+        frames.append(raw)
+        log.info("Okundu: %s (%d satır)", os.path.basename(path), len(raw))
+
+    df = pd.concat(frames, ignore_index=True)
+    df = df.rename(columns={
+        "Date": "eventDate", "Latitude": "latitude", "Longitude": "longitude",
+        "Depth": "depth", "Magnitude": "magnitude", "Location": "location",
+        "EventID": "event_id", "Type": "mag_type",
+    })
+
+    # (1) Gün-önce tarih ayrıştırma
+    df["eventDate"] = pd.to_datetime(df["eventDate"], dayfirst=True, errors="coerce")
+    df = df.dropna(subset=["eventDate"])
+
+    # (2) EventID başına en erken zaman = UTC
+    if "event_id" in df.columns:
+        df["eventDate"] = df.groupby("event_id")["eventDate"].transform("min")
+        before = len(df)
+        df = df.drop_duplicates(subset=["event_id"], keep="first")
+        log.info("EventID tekilleştirme: %d → %d kayıt", before, len(df))
+
+    df = clean(df)
+    cols = [c for c in REQUIRED_COLS + ["event_id", "mag_type"] if c in df.columns]
+    df = df[cols].sort_values("eventDate").reset_index(drop=True)
+
+    # Kalan yakın-kopyalar (EventID'siz tarihsel kayıtlar) için tolerans temizliği
+    df = deduplicate(df)
+
+    os.makedirs(os.path.dirname(output), exist_ok=True)
+    df.to_parquet(output, index=False)
+    log.info("Katalog yeniden inşa edildi: %s (%d kayıt)", output, len(df))
+    return df
+
+
 def migrate_legacy(kandilli_tz_fix: bool = False) -> pd.DataFrame:
     """Tek seferlik geçiş: merged_quakes.xlsx → tekilleştirilmiş Parquet.
 
@@ -164,5 +227,5 @@ def migrate_legacy(kandilli_tz_fix: bool = False) -> pd.DataFrame:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-    result = migrate_legacy()
-    print(f"Gecis tamam: {len(result)} kayit -> {PATHS['merged']}")
+    result = rebuild_from_raw()
+    print(f"Katalog yeniden insa edildi: {len(result)} kayit -> {PATHS['merged']}")
