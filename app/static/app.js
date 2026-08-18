@@ -32,11 +32,12 @@ document.querySelectorAll(".tab").forEach((btn) =>
     document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     const view = btn.dataset.view;
-    ["live", "archive", "seismo"].forEach((v) =>
+    ["live", "archive", "seismo", "compare"].forEach((v) =>
       document.getElementById(`view-${v}`).classList.toggle("hidden", v !== view)
     );
     if (view === "archive") initArchive();
     if (view === "seismo") initSeismo();
+    if (view === "compare") initCompare();
     setTimeout(() => {
       liveMap.invalidateSize();
       archMap && archMap.invalidateSize();
@@ -440,6 +441,162 @@ async function runForecast() {
       Dizi ne kadar eskiyse olasılıklar o kadar düşer — bu beklenen davranıştır.</p>`;
   }
   el.innerHTML = html;
+}
+
+/* ══════════ KAYNAK KARŞILAŞTIRMA ══════════ */
+let compareInited = false;
+
+function initCompare() {
+  if (compareInited) return;
+  compareInited = true;
+  document.getElementById("c-apply").addEventListener("click", runCompare);
+  runCompare();
+}
+
+async function runCompare() {
+  const note = document.getElementById("c-note");
+  note.textContent = "Sorgulanıyor…";
+  const params = new URLSearchParams({
+    start: document.getElementById("c-start").value,
+    end: document.getElementById("c-end").value,
+    min_mag: document.getElementById("c-minmag").value,
+    samples: 60,
+  });
+
+  let d;
+  try {
+    const r = await fetch(`/api/compare?${params}`);
+    if (!r.ok) throw new Error(r.status);
+    d = await r.json();
+  } catch {
+    note.textContent = "Kaynaklara erişilemedi.";
+    return;
+  }
+  note.textContent = d.notes.length ? d.notes[0] : "";
+
+  const cmp = d.comparisons[0];
+  const st = cmp ? cmp.stats : null;
+  const cat = Object.fromEntries(d.catalogs.map((c) => [c.source, c]));
+
+  document.getElementById("c-kpis").innerHTML =
+    kpi("AFAD kaydı", (cat.AFAD?.count ?? 0).toLocaleString("tr-TR")) +
+    kpi("USGS kaydı", (cat.USGS?.count ?? 0).toLocaleString("tr-TR")) +
+    kpi("Eşleşen olay", cmp ? cmp.matched.toLocaleString("tr-TR") : "—") +
+    kpi("Yalnız AFAD'da", cmp ? cmp.only_a.toLocaleString("tr-TR") : "—") +
+    kpi("Yalnız USGS'te", cmp ? cmp.only_b.toLocaleString("tr-TR") : "—") +
+    kpi("Medyan büyüklük farkı", st ? `${st.dmag_median > 0 ? "+" : ""}${st.dmag_median}` : "—") +
+    kpi("Medyan episantr farkı", st ? `${st.dist_median} km` : "—") +
+    kpi("En büyük episantr farkı", st ? `${st.dist_max} km` : "—");
+
+  const pairs = d.pairs || [];
+  drawCompareCharts(pairs);
+  drawScales(cmp);
+  drawPairTable(pairs);
+}
+
+function drawCompareCharts(pairs) {
+  const gridColor = "rgba(127,140,163,0.15)";
+  const common = {
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: "#7f8ca3" }, grid: { color: gridColor } },
+      y: { ticks: { color: "#7f8ca3" }, grid: { color: gridColor } },
+    },
+  };
+  const mk = (id, cfg) => {
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart(document.getElementById(id), cfg);
+  };
+
+  // Büyüklük farkı histogramı
+  const bins = {};
+  pairs.forEach((p) => {
+    const b = (Math.round(p.dmag * 10) / 10).toFixed(1);
+    bins[b] = (bins[b] || 0) + 1;
+  });
+  const labels = Object.keys(bins).sort((a, b) => a - b);
+  mk("chart-dmag", {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        data: labels.map((l) => bins[l]),
+        backgroundColor: labels.map((l) => (Math.abs(+l) < 0.05 ? "#7fb80088" : "#e74c3c88")),
+      }],
+    },
+    options: {
+      ...common,
+      plugins: {
+        ...common.plugins,
+        title: { display: true, text: "Büyüklük Farkı Dağılımı (AFAD − USGS)", color: "#e6ecf5" },
+      },
+    },
+  });
+
+  // Büyüklük vs episantr farkı
+  mk("chart-dist", {
+    type: "scatter",
+    data: {
+      datasets: [{
+        data: pairs.map((p) => ({ x: Math.max(p.mag_a, p.mag_b), y: p.dist_km })),
+        backgroundColor: "#3498db",
+        pointRadius: 4,
+      }],
+    },
+    options: {
+      ...common,
+      scales: {
+        x: { ...common.scales.x, title: { display: true, text: "Büyüklük", color: "#7f8ca3" } },
+        y: { ...common.scales.y, title: { display: true, text: "Episantr farkı (km)", color: "#7f8ca3" } },
+      },
+      plugins: {
+        ...common.plugins,
+        title: { display: true, text: "Episantr Farkı — Büyüklüğe Göre", color: "#e6ecf5" },
+      },
+    },
+  });
+}
+
+function drawScales(cmp) {
+  const el = document.getElementById("c-scales");
+  if (!cmp || !cmp.scale_pairs.length) {
+    el.innerHTML = `<p class="muted">Ölçek kırılımı için yeterli eşleşme yok.</p>`;
+    return;
+  }
+  el.innerHTML = `<table class="forecast-table">
+    <tr><th>AFAD / USGS ölçeği</th><th>Eşleşme</th><th>Ortalama fark</th><th>Medyan fark</th></tr>
+    ${cmp.scale_pairs.map((s) => `<tr>
+      <td><b>${s.pair}</b></td>
+      <td>${s.n}</td>
+      <td class="${Math.abs(s.dmag_mean) >= 0.2 ? "prob-mid" : "prob-low"}">${s.dmag_mean > 0 ? "+" : ""}${s.dmag_mean.toFixed(2)}</td>
+      <td>${s.dmag_median > 0 ? "+" : ""}${s.dmag_median.toFixed(2)}</td>
+    </tr>`).join("")}
+  </table>
+  <p class="muted" style="margin-top:8px">Pozitif değer AFAD'ın daha büyük ölçtüğünü gösterir.
+  Ölçekler farklı fiziksel büyüklükler ölçer; sistematik fark beklenen bir durumdur.</p>`;
+}
+
+function drawPairTable(pairs) {
+  const el = document.getElementById("c-pairs");
+  if (!pairs.length) {
+    el.innerHTML = `<p class="muted">Bu pencerede eşleşen olay bulunamadı.</p>`;
+    return;
+  }
+  el.innerHTML = `<table class="forecast-table">
+    <tr><th>Zaman (TSİ)</th><th>AFAD</th><th>USGS</th><th>Fark</th><th>Episantr</th><th>Zaman farkı</th><th>Yer</th></tr>
+    ${pairs.map((p) => `<tr${p.ambiguous ? ' class="ambiguous"' : ""}>
+      <td>${fmtTime(p.time_a)}</td>
+      <td><b>M ${p.mag_a.toFixed(1)}</b> <span class="muted">${p.magtype_a || "?"}</span></td>
+      <td><b>M ${p.mag_b.toFixed(1)}</b> <span class="muted">${p.magtype_b || "?"}</span></td>
+      <td class="${Math.abs(p.dmag) >= 0.3 ? "prob-mid" : "prob-low"}">${p.dmag > 0 ? "+" : ""}${p.dmag.toFixed(1)}</td>
+      <td>${p.dist_km.toFixed(1)} km</td>
+      <td>${p.dt_s.toFixed(0)} sn</td>
+      <td class="loc-cell">${(p.location_a || "").slice(0, 34)}</td>
+    </tr>`).join("")}
+  </table>
+  <p class="muted" style="margin-top:8px">Sarı satırlar, tolerans penceresinde birden fazla aday
+  bulunduğu için eşleşmesi belirsiz olan olaylardır.</p>`;
 }
 
 /* ── başlat ── */

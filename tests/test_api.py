@@ -145,3 +145,61 @@ class TestSeismology:
         assert body["sequence_events"] > 50
         if body["forecast"]:
             assert all(0.0 <= f["probability"] <= 1.0 for f in body["forecast"])
+
+
+class TestCompareEndpoint:
+    """Karşılaştırma ucu — ağ katmanı mock'lanır (CI'da dış API'ye gidilmez)."""
+
+    @pytest.fixture()
+    def fake_sources(self, monkeypatch):
+        import pandas as pd
+
+        from src import catalog_compare as cc
+
+        def mk(mag, mtype, offset_s, source):
+            df = pd.DataFrame([{
+                "source": source, "event_id": "1",
+                "eventDate": pd.Timestamp("2024-05-01 12:00:00") + pd.Timedelta(seconds=offset_s),
+                "latitude": 39.0, "longitude": 35.0, "depth": 10.0,
+                "magnitude": mag, "mag_type": mtype, "location": "Test",
+            }])
+            return df[cc.SCHEMA]
+
+        monkeypatch.setattr(main, "compare_window",
+                            lambda s, e, m: cc.compare_window(s, e, m, fetchers={
+                                "AFAD": lambda *a: mk(5.0, "ML", 0, "AFAD"),
+                                "USGS": lambda *a: mk(4.8, "mb", 3, "USGS"),
+                            }))
+        monkeypatch.setattr(main, "sample_pairs",
+                            lambda s, e, m, n: cc.sample_pairs(s, e, m, n, fetchers={
+                                "AFAD": lambda *a: mk(5.0, "ML", 0, "AFAD"),
+                                "USGS": lambda *a: mk(4.8, "mb", 3, "USGS"),
+                            }))
+        main._compare_cache.clear()
+        yield
+        main._compare_cache.clear()
+
+    def test_compare_returns_matched_pair(self, client, fake_sources):
+        r = client.get("/api/compare?start=2024-05-01&end=2024-05-02&min_mag=4.0")
+        assert r.status_code == 200
+        body = r.json()
+        cmp = body["comparisons"][0]
+        assert cmp["matched"] == 1
+        assert cmp["stats"]["dmag_median"] == pytest.approx(0.2)
+        assert body["pairs"][0]["magtype_a"] == "ML"
+
+    def test_compare_result_is_cached(self, client, fake_sources):
+        client.get("/api/compare?start=2024-05-01&end=2024-05-02&min_mag=4.0")
+        assert len(main._compare_cache) == 1
+
+    def test_compare_rejects_bad_magnitude(self, client):
+        assert client.get("/api/compare?start=2024-01-01&end=2024-01-02&min_mag=99").status_code == 422
+
+    def test_compare_source_failure_returns_502(self, client, monkeypatch):
+        def boom(*a, **k):
+            raise RuntimeError("kaynak yok")
+
+        monkeypatch.setattr(main, "compare_window", boom)
+        main._compare_cache.clear()
+        assert client.get("/api/compare?start=2024-01-01&end=2024-01-02").status_code == 502
+        main._compare_cache.clear()

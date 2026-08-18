@@ -57,6 +57,21 @@
 > tahmini (şu tarihte, şurada, şu büyüklükte) bilimsel olarak mümkün değildir ve
 > bu proje böyle bir iddiada bulunmaz.
 
+### ⚖️ Kaynak Karşılaştırma *(Yeni)*
+- Aynı depremi **AFAD ve USGS nasıl farklı raporluyor?** — büyüklük, episantr,
+  derinlik ve orijin zamanı farkları ölçülür
+- **Büyüklük ölçeği kırılımı:** AFAD `ML`/`MW`, USGS `mb`/`mwr`/`mww` kullanır;
+  hangi ölçek çiftinde ne kadar sistematik fark olduğu tabloya dökülür
+- **Kapsama farkı:** yalnızca bir katalogda bulunan olaylar sayılır — USGS'in
+  Türkiye eşiği ~M4.0 olduğu için küçük depremler onda hiç yoktur
+- Eşleştirme yalnızca zaman + konum yakınlığına bakar; büyüklük farkı ölçüt
+  **değildir** (ölçmek istenen şeyin ta kendisidir). Tolerans penceresinde birden
+  fazla aday varsa satır "belirsiz" olarak işaretlenir
+
+> Örnek (Şubat 2023): AFAD 179, USGS 171 olay listeler; 121'i eşleşir, **58 olay
+> yalnızca AFAD'da, 50 olay yalnızca USGS'tedir**. Medyan episantr farkı 7,7 km,
+> en büyüğü 91 km. Pazarcık ana şoku AFAD'da M7.7 (MW), USGS'te M7.8 (mww).
+
 ### 🧭 Veri Kalitesi
 - **16.150+ kayıt** (M ≥ 4, 1900–2025), EventID bazlı tekilleştirme
 - Ham veri iki sistematik bozulma içerir, ikisi de pipeline'da düzeltilir:
@@ -119,6 +134,7 @@ Tarayıcıda aç → `http://localhost:8021`
 | `GET /api/analysis/decluster` | Gardner-Knopoff ayıklama özeti |
 | `GET /api/analysis/mainshocks` | Tahmin için aday ana şoklar |
 | `GET /api/analysis/aftershock?time=&lat=&lon=&mag=` | Omori-Utsu artçı şok tahmini |
+| `GET /api/compare?start=&end=&min_mag=` | AFAD ↔ USGS katalog karşılaştırması (30 dk önbellek) |
 
 Tüm zamanlar **UTC (ISO 8601, `Z` sonekli)** döner; yerel saate çeviri istemcinin işidir.
 
@@ -130,7 +146,7 @@ Tüm zamanlar **UTC (ISO 8601, `Z` sonekli)** döner; yerel saate çeviri istemc
 |--------|--------|------------|
 | **Kandilli Rasathanesi** — Boğaziçi Üniversitesi | Gerçek zamanlı, Türkiye | Her dakika |
 | **AFAD** — Afet ve Acil Durum Yönetimi Başkanlığı | Gerçek zamanlı + arşiv | Her dakika |
-| **USGS** — ABD Jeoloji Araştırmaları Kurumu | 1900–1990 arşiv (M≥5) | Statik |
+| **USGS** — ABD Jeoloji Araştırmaları Kurumu | 1900–1990 arşiv + canlı karşılaştırma (Türkiye eşiği ~M4.0) | FDSNWS |
 | **Diri Fay Veritabanı** | Türkiye aktif fay hatları | Statik |
 
 > Canlı veri birincil olarak [orhanayd/kandilli-rasathanesi-api](https://github.com/orhanayd/kandilli-rasathanesi-api)
@@ -159,7 +175,8 @@ TR-Earthquake-AI/
 │   ├── merge_datasets.py     ← AFAD + USGS birleştirici (pipeline üzerinden)
 │   ├── combine_excels.py     ← Ham Excel dışa aktarımlarını birleştirir
 │   ├── preprocess.py         ← Sütun standardizasyonu
-│   ├── seismology.py         ← b-değeri, Mc, Gardner-Knopoff, Omori-Utsu (YENİ)
+│   ├── seismology.py         ← b-değeri, Mc, Gardner-Knopoff, Omori-Utsu
+│   ├── catalog_compare.py    ← AFAD ↔ USGS katalog eşleştirme ve fark analizi (YENİ)
 │   └── fay_risk_analiz.py    ← Fay bazlı aktivite skoru (metrik CRS, en-yakın-fay ataması)
 │
 ├── data/
@@ -167,7 +184,7 @@ TR-Earthquake-AI/
 │   ├── diri_faylar_simplified.geojson ← Web için sadeleştirilmiş faylar (~0,2 MB)
 │   └── diri_faylar.geojson   ← Orijinal fay veritabanı (~12 MB)
 │
-├── tests/                    ← pytest (pipeline + API + sismoloji, 53 test)
+├── tests/                    ← pytest (pipeline + API + sismoloji + karşılaştırma, 75 test)
 ├── .github/workflows/ci.yml  ← GitHub Actions (her push'ta testler)
 ├── requirements.txt
 └── README.md

@@ -22,6 +22,7 @@
     <button class="tab active" data-view="live">🔴 Canlı</button>
     <button class="tab" data-view="archive">🗺️ Arşiv &amp; Analiz</button>
     <button class="tab" data-view="seismo">🔬 Sismoloji</button>
+    <button class="tab" data-view="compare">⚖️ Kaynak Karşılaştırma</button>
   </nav>
   <div class="status">
     <span id="status-dot" class="dot"></span>
@@ -135,6 +136,47 @@
       <button id="f-forecast" class="btn primary">Tahmin Et</button>
     </div>
     <div id="forecast-result"></div>
+  </div>
+</main>
+
+<!-- ── KARŞILAŞTIRMA ─────────────────────────────────────── -->
+<main id="view-compare" class="view hidden">
+
+  <div class="card info">
+    <b>Aynı deprem, farklı sayılar.</b> Her kurum depremi kendi ağıyla ölçer;
+    büyüklük, episantr ve derinlik değerleri farklı çıkar. AFAD <code>ML</code> ve
+    <code>MW</code>, USGS <code>mb</code>, <code>mwr</code>, <code>mww</code> ölçeklerini
+    kullanır — bu yüzden "hangisi doğru?" sorusunun tek cevabı yoktur; ölçtükleri
+    şey farklıdır. Bu sayfa farkları gizlemek yerine ölçer.
+    <br><br>
+    <b>Kapsam sınırı:</b> USGS'in Türkiye'deki fiilî eşiği ~M4.0'dır; daha küçük
+    depremler onun kataloğunda hiç yoktur. Kandilli'nin açık API'si tarihsel
+    sorgulamaya izin vermediği için bu karşılaştırma AFAD ile USGS arasındadır.
+  </div>
+
+  <div class="toolbar">
+    <label>Başlangıç <input type="date" id="c-start" value="2023-02-01"></label>
+    <label>Bitiş <input type="date" id="c-end" value="2023-02-28"></label>
+    <label>Min. büyüklük <input type="number" id="c-minmag" value="4.5" min="0" max="9" step="0.1" class="narrow"></label>
+    <button id="c-apply" class="btn primary">Karşılaştır</button>
+    <span class="muted" id="c-note">İki canlı API sorgulanır, birkaç saniye sürebilir.</span>
+  </div>
+
+  <div class="kpis" id="c-kpis"></div>
+
+  <div class="charts">
+    <div class="card"><canvas id="chart-dmag"></canvas></div>
+    <div class="card"><canvas id="chart-dist"></canvas></div>
+  </div>
+
+  <div class="card forecast-card">
+    <div class="card-title">Büyüklük Ölçeği Çiftleri <span class="muted">(sistematik farklar)</span></div>
+    <div id="c-scales"></div>
+  </div>
+
+  <div class="card forecast-card">
+    <div class="card-title">Eşleşen Olaylar <span class="muted">(en büyükten)</span></div>
+    <div id="c-pairs" class="table-scroll"></div>
   </div>
 </main>
 

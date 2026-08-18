@@ -5,6 +5,7 @@ Uçlar:
   GET /api/live?source=all          Son 24 saat (canlı, 60 sn sunucu önbelleği)
   GET /api/quakes?...               Filtreli arşiv kataloğu (JSON veya CSV)
   GET /api/stats?...                Filtreli arşiv istatistikleri (grafikler için)
+  GET /api/compare?...              Çoklu katalog karşılaştırması (AFAD vs USGS)
   GET /api/faults                   Sadeleştirilmiş diri fay GeoJSON'u
   GET /api/status                   Kaynak API erişilebilirlik durumu
   GET /                             Leaflet tabanlı arayüz (app/static)
@@ -26,7 +27,8 @@ from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.config import PATHS  # noqa: E402
+from src.catalog_compare import compare_window, sample_pairs  # noqa: E402
+from src.config import COMPARE, PATHS  # noqa: E402
 from src.fetch_kandilli import api_status, get_live  # noqa: E402
 from src.pipeline import load_merged  # noqa: E402
 from src.seismology import (  # noqa: E402
@@ -286,6 +288,41 @@ def api_aftershock(time: str, lat: float, lon: float, mag: float):
     except ValueError:
         raise HTTPException(status_code=422, detail="Geçersiz zaman formatı.")
     return aftershock_forecast(catalog(), t0, lat, lon, mag)
+
+
+# ── Çoklu katalog karşılaştırması ────────────────────────────────────────────
+
+_compare_cache: dict[str, tuple[float, dict]] = {}
+_compare_lock = threading.Lock()
+
+
+@app.get("/api/compare")
+def api_compare(
+    start: str,
+    end: str,
+    min_mag: float = Query(4.0, ge=0.0, le=10.0),
+    samples: int = Query(50, ge=0, le=200),
+):
+    """AFAD ve USGS kataloglarını verilen pencerede karşılaştırır.
+
+    Canlı iki API'ye gittiği için sonuç 30 dakika önbelleklenir.
+    """
+    key = f"{start}|{end}|{min_mag}|{samples}"
+    now = time.monotonic()
+    with _compare_lock:
+        hit = _compare_cache.get(key)
+        if hit and now - hit[0] < COMPARE["cache_ttl_s"]:
+            return hit[1]
+
+    try:
+        result = compare_window(start, end, min_mag)
+        result["pairs"] = sample_pairs(start, end, min_mag, samples) if samples else []
+    except Exception as e:  # ağ/kaynak hatalarını 502 olarak bildir
+        raise HTTPException(status_code=502, detail=f"Katalog kaynaklarına erişilemedi: {e}")
+
+    with _compare_lock:
+        _compare_cache[key] = (now, result)
+    return result
 
 
 @app.get("/api/faults")

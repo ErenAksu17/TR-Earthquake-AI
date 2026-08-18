@@ -66,3 +66,11 @@ FAULT = {
 TZ = {
     "kandilli_local": "Europe/Istanbul",  # Kandilli API yerel saat döner → UTC'ye çevrilir
 }
+
+# Çoklu katalog karşılaştırması
+COMPARE = {
+    "time_tolerance_s":  45,    # kurumlar arası orijin zamanı farkı payı
+    "dist_tolerance_km": 120,   # kurumlar arası episantr farkı payı (deniz olayları geniş)
+    "timeout":           60,
+    "cache_ttl_s":       1800,  # karşılaştırma sonucu önbelleği (30 dk)
+}
