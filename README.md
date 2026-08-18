@@ -43,9 +43,26 @@
 - Yıllık deprem sayısı + en büyük deprem grafiği, büyüklük ve derinlik dağılımları
 - Filtrelenmiş veriyi **CSV olarak indir**
 
+### 🔬 Sismoloji *(Yeni)*
+- **Gutenberg-Richter analizi:** Mc (tamlık eşiği) tahmini + Aki-Utsu maksimum
+  olabilirlik b-değeri (Shi & Bolt belirsizliğiyle), log ölçekli frekans grafiği
+- **Bölgesel b-değeri haritası** — ızgara bazlı; düşük b, büyük deprem payının
+  yüksek olduğu bölgeleri gösterir
+- **Gardner-Knopoff katalog ayıklama** — artçı şokları ayırıp bağımsız
+  (ana şok) katalogla analiz yapma seçeneği
+- **Artçı şok tahmini:** Omori-Utsu bozunum yasası MLE + Reasenberg-Jones tipi
+  olasılık — "önümüzdeki 7/30 günde M≥4/5/6 artçı olasılığı"
+
+> Bunların hepsi **olasılıksal** yöntemlerdir. Deterministik kısa vadeli deprem
+> tahmini (şu tarihte, şurada, şu büyüklükte) bilimsel olarak mümkün değildir ve
+> bu proje böyle bir iddiada bulunmaz.
+
 ### 🧭 Veri Kalitesi
+- **16.150+ kayıt** (M ≥ 4, 1900–2025), EventID bazlı tekilleştirme
+- Ham veri iki sistematik bozulma içerir, ikisi de pipeline'da düzeltilir:
+  tarihler `DD/MM/YYYY` metin biçimindedir (varsayılan ayrıştırma 6 Şubat'ı
+  2 Haziran yapar) ve aynı deprem farklı dosyalarda UTC/TSİ olarak çiftlenir
 - Tüm zaman damgaları veri katmanında **UTC** tutulur, arayüzde TR saatine çevrilir
-- Kaynaklar arası **tekilleştirme**: zaman (≤20 sn) + konum (≤25 km) + büyüklük (≤0.6) toleransı
 - Katalog **Parquet** formatında (XLSX'e göre ~10x hızlı yükleme)
 
 ---
@@ -97,6 +114,11 @@ Tarayıcıda aç → `http://localhost:8021`
 | `GET /api/stats?...` | Filtreli istatistikler (yıllık seri, histogramlar) |
 | `GET /api/faults` | Sadeleştirilmiş diri fay GeoJSON'u (~0,2 MB) |
 | `GET /api/status` | Kaynak API erişilebilirlik durumu |
+| `GET /api/analysis/gr?declustered=` | Gutenberg-Richter: Mc, b-değeri, kümülatif eğri |
+| `GET /api/analysis/bmap?cell_deg=` | Izgara bazlı b-değeri haritası |
+| `GET /api/analysis/decluster` | Gardner-Knopoff ayıklama özeti |
+| `GET /api/analysis/mainshocks` | Tahmin için aday ana şoklar |
+| `GET /api/analysis/aftershock?time=&lat=&lon=&mag=` | Omori-Utsu artçı şok tahmini |
 
 Tüm zamanlar **UTC (ISO 8601, `Z` sonekli)** döner; yerel saate çeviri istemcinin işidir.
 
@@ -137,7 +159,7 @@ TR-Earthquake-AI/
 │   ├── merge_datasets.py     ← AFAD + USGS birleştirici (pipeline üzerinden)
 │   ├── combine_excels.py     ← Ham Excel dışa aktarımlarını birleştirir
 │   ├── preprocess.py         ← Sütun standardizasyonu
-│   ├── ml_model.py           ← (Faz 2'de b-value/ETAS ile değiştirilecek)
+│   ├── seismology.py         ← b-değeri, Mc, Gardner-Knopoff, Omori-Utsu (YENİ)
 │   └── fay_risk_analiz.py    ← Fay bazlı aktivite skoru (metrik CRS, en-yakın-fay ataması)
 │
 ├── data/
@@ -145,7 +167,7 @@ TR-Earthquake-AI/
 │   ├── diri_faylar_simplified.geojson ← Web için sadeleştirilmiş faylar (~0,2 MB)
 │   └── diri_faylar.geojson   ← Orijinal fay veritabanı (~12 MB)
 │
-├── tests/                    ← pytest (pipeline + API, 23 test)
+├── tests/                    ← pytest (pipeline + API + sismoloji, 53 test)
 ├── .github/workflows/ci.yml  ← GitHub Actions (her push'ta testler)
 ├── requirements.txt
 └── README.md

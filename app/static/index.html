@@ -21,6 +21,7 @@
   <nav>
     <button class="tab active" data-view="live">🔴 Canlı</button>
     <button class="tab" data-view="archive">🗺️ Arşiv &amp; Analiz</button>
+    <button class="tab" data-view="seismo">🔬 Sismoloji</button>
   </nav>
   <div class="status">
     <span id="status-dot" class="dot"></span>
@@ -93,6 +94,47 @@
     <div class="card wide"><canvas id="chart-yearly"></canvas></div>
     <div class="card"><canvas id="chart-mag"></canvas></div>
     <div class="card"><canvas id="chart-depth"></canvas></div>
+  </div>
+</main>
+
+<!-- ── SİSMOLOJİ ─────────────────────────────────────────── -->
+<main id="view-seismo" class="view hidden">
+
+  <div class="card info">
+    <b>Bu sayfa ne yapar, ne yapmaz?</b> Burada operasyonel sismolojinin kullandığı
+    <i>istatistiksel</i> yöntemler var: Gutenberg-Richter büyüklük-frekans ilişkisi (b-değeri),
+    Gardner-Knopoff katalog ayıklama ve Omori-Utsu artçı şok bozunumu (Reasenberg-Jones tipi
+    olasılık). Bunlar <b>olasılıksal</b> araçlardır — hiçbiri "şu tarihte şurada deprem olacak"
+    diyemez; deterministik kısa vadeli deprem tahmini bilimsel olarak mümkün değildir.
+  </div>
+
+  <div class="toolbar">
+    <label>Başlangıç <input type="date" id="s-start" value="1990-01-01"></label>
+    <label>Bitiş <input type="date" id="s-end"></label>
+    <label class="check"><input type="checkbox" id="s-declustered"> Artçılar ayıklansın (Gardner-Knopoff)</label>
+    <button id="s-apply" class="btn primary">Hesapla</button>
+    <span class="muted" id="s-decluster-info"></span>
+  </div>
+
+  <div class="kpis" id="s-kpis"></div>
+
+  <div class="charts">
+    <div class="card"><canvas id="chart-gr"></canvas></div>
+    <div class="card map-card">
+      <div class="card-title">Bölgesel b-değeri Haritası <span class="muted">(düşük b = büyük deprem payı yüksek)</span></div>
+      <div id="map-bvalue" class="map bmap"></div>
+    </div>
+  </div>
+
+  <div class="card forecast-card">
+    <div class="card-title">🌊 Artçı Şok Tahmini <span class="muted">(Omori-Utsu + Reasenberg-Jones)</span></div>
+    <div class="toolbar sub">
+      <label>Ana şok seç
+        <select id="f-mainshock"></select>
+      </label>
+      <button id="f-forecast" class="btn primary">Tahmin Et</button>
+    </div>
+    <div id="forecast-result"></div>
   </div>
 </main>
 

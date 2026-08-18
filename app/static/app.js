@@ -32,10 +32,16 @@ document.querySelectorAll(".tab").forEach((btn) =>
     document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     const view = btn.dataset.view;
-    document.getElementById("view-live").classList.toggle("hidden", view !== "live");
-    document.getElementById("view-archive").classList.toggle("hidden", view !== "archive");
+    ["live", "archive", "seismo"].forEach((v) =>
+      document.getElementById(`view-${v}`).classList.toggle("hidden", v !== view)
+    );
     if (view === "archive") initArchive();
-    setTimeout(() => { liveMap.invalidateSize(); archMap && archMap.invalidateSize(); }, 60);
+    if (view === "seismo") initSeismo();
+    setTimeout(() => {
+      liveMap.invalidateSize();
+      archMap && archMap.invalidateSize();
+      bMap && bMap.invalidateSize();
+    }, 60);
   })
 );
 
@@ -273,6 +279,167 @@ function renderCharts(stats) {
     data: { labels: stats.depth_hist.labels, datasets: [{ label: "Adet", data: stats.depth_hist.counts, backgroundColor: "#3498db88" }] },
     options: { ...common, plugins: { ...common.plugins, title: { display: true, text: "Derinlik Dağılımı", color: "#e6ecf5" } } },
   });
+}
+
+/* ══════════ SİSMOLOJİ ══════════ */
+let bMap = null;
+let bCellLayer = null;
+let seismoInited = false;
+
+// b-değeri renk skalası: düşük b (büyük deprem payı yüksek) → kırmızı
+function bColor(b) {
+  if (b < 0.75) return "#e74c3c";
+  if (b < 0.9)  return "#e67e22";
+  if (b < 1.05) return "#f1c40f";
+  if (b < 1.2)  return "#7fb800";
+  return "#3498db";
+}
+
+async function initSeismo() {
+  if (seismoInited) return;
+  seismoInited = true;
+  document.getElementById("s-end").value = new Date().toISOString().slice(0, 10);
+
+  bMap = L.map("map-bvalue", { preferCanvas: true }).setView([39, 35], 5);
+  tileLayer().addTo(bMap);
+  const gj = await loadFaults();
+  if (gj) L.geoJSON(gj, { style: { ...faultStyle, opacity: 0.3 } }).addTo(bMap);
+
+  document.getElementById("s-apply").addEventListener("click", applySeismo);
+  document.getElementById("f-forecast").addEventListener("click", runForecast);
+
+  // Ayıklama özeti + ana şok listesi
+  fetch("/api/analysis/decluster").then((r) => r.json()).then((d) => {
+    document.getElementById("s-decluster-info").textContent =
+      `Katalog: ${d.total.toLocaleString("tr-TR")} kayıt — %${d.aftershock_pct} artçı (GK)`;
+  });
+  fetch("/api/analysis/mainshocks?min_mag=6.0&since=1990-01-01").then((r) => r.json()).then((d) => {
+    document.getElementById("f-mainshock").innerHTML = d.mainshocks
+      .map((m) => {
+        const t = m.eventDate.slice(0, 10);
+        return `<option value='${JSON.stringify({ time: m.eventDate, lat: m.latitude, lon: m.longitude, mag: m.magnitude })}'>
+          M ${m.magnitude.toFixed(1)} — ${(m.location || "?").slice(0, 40)} (${t})</option>`;
+      })
+      .join("");
+  });
+
+  await applySeismo();
+  await loadBMap();
+}
+
+async function applySeismo() {
+  const params = new URLSearchParams({
+    start: document.getElementById("s-start").value,
+    end: document.getElementById("s-end").value,
+    declustered: document.getElementById("s-declustered").checked,
+  });
+  const r = await fetch(`/api/analysis/gr?${params}`);
+  if (!r.ok) {
+    document.getElementById("s-kpis").innerHTML = kpi("Hata", "Yeterli kayıt yok");
+    return;
+  }
+  const d = await r.json();
+
+  document.getElementById("s-kpis").innerHTML =
+    kpi("b-değeri", d.fit ? `${d.fit.b} ± ${d.fit.b_err}` : "—") +
+    kpi("Mc (tamlık eşiği)", d.mc != null ? `M ${d.mc.toFixed(1)}` : "—") +
+    kpi("a-değeri", d.fit ? d.fit.a : "—") +
+    kpi("Kayıt (M ≥ Mc)", d.fit ? d.fit.n.toLocaleString("tr-TR") : "—") +
+    kpi("Toplam Kayıt", d.n_total.toLocaleString("tr-TR"));
+
+  const gridColor = "rgba(127,140,163,0.15)";
+  if (charts["chart-gr"]) charts["chart-gr"].destroy();
+  charts["chart-gr"] = new Chart(document.getElementById("chart-gr"), {
+    type: "scatter",
+    data: {
+      datasets: [
+        {
+          label: "Gözlenen N(≥M)",
+          data: d.curve.mags.map((m, i) => ({ x: m, y: d.curve.counts[i] })),
+          backgroundColor: "#3498db",
+          pointRadius: 3,
+        },
+        ...(d.curve.fit
+          ? [{
+              label: `G-R fit (b=${d.fit.b})`,
+              data: d.curve.fit.map((f) => ({ x: f.m, y: f.n })),
+              type: "line",
+              borderColor: "#e74c3c",
+              pointRadius: 0,
+              borderWidth: 2,
+            }]
+          : []),
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: "#e6ecf5" } },
+        title: { display: true, text: "Gutenberg-Richter Büyüklük-Frekans İlişkisi", color: "#e6ecf5" },
+      },
+      scales: {
+        x: { title: { display: true, text: "Büyüklük (M)", color: "#7f8ca3" }, ticks: { color: "#7f8ca3" }, grid: { color: gridColor } },
+        y: { type: "logarithmic", title: { display: true, text: "N (≥M) — log", color: "#7f8ca3" }, ticks: { color: "#7f8ca3" }, grid: { color: gridColor } },
+      },
+    },
+  });
+}
+
+async function loadBMap() {
+  const r = await fetch("/api/analysis/bmap?declustered=true&cell_deg=1.0");
+  if (!r.ok) return;
+  const d = await r.json();
+  if (bCellLayer) bMap.removeLayer(bCellLayer);
+  bCellLayer = L.layerGroup(
+    d.cells.map((c) => {
+      const h = c.cell_deg / 2;
+      return L.rectangle(
+        [[c.lat - h, c.lon - h], [c.lat + h, c.lon + h]],
+        { color: bColor(c.b), weight: 0.5, fillColor: bColor(c.b), fillOpacity: 0.45 }
+      ).bindPopup(
+        `<b>b = ${c.b} ± ${c.b_err}</b><br>Mc = M ${c.mc.toFixed(1)}<br>${c.n} deprem (M ≥ Mc)`
+      );
+    })
+  ).addTo(bMap);
+}
+
+async function runForecast() {
+  const sel = document.getElementById("f-mainshock").value;
+  if (!sel) return;
+  const ms = JSON.parse(sel);
+  const params = new URLSearchParams({ time: ms.time, lat: ms.lat, lon: ms.lon, mag: ms.mag });
+  const r = await fetch(`/api/analysis/aftershock?${params}`);
+  const el = document.getElementById("forecast-result");
+  if (!r.ok) {
+    el.innerHTML = `<p class="muted">Tahmin hesaplanamadı.</p>`;
+    return;
+  }
+  const d = await r.json();
+
+  let html = `<p class="muted">Dizi: ${d.sequence_events.toLocaleString("tr-TR")} kayıt ·
+    geçen süre ${Math.round(d.elapsed_days)} gün · b=${d.b_value}${d.b_source === "fallback" ? " (bölgesel varsayılan)" : ""}
+    ${d.omori ? ` · Omori: p=${d.omori.p}, c=${d.omori.c}` : ""}</p>`;
+
+  if (!d.forecast) {
+    html += `<p>${d.note || "Bu dizi için tahmin üretilemedi."}</p>`;
+  } else {
+    const horizons = [...new Set(d.forecast.map((f) => f.horizon_days))];
+    const mags = [...new Set(d.forecast.map((f) => f.min_mag))];
+    const probCls = (p) => (p >= 0.5 ? "prob-high" : p >= 0.1 ? "prob-mid" : "prob-low");
+    html += `<table class="forecast-table"><tr><th></th>${mags.map((m) => `<th>M ≥ ${m.toFixed(0)}</th>`).join("")}</tr>`;
+    horizons.forEach((h) => {
+      html += `<tr><th>Önümüzdeki ${h} gün</th>`;
+      mags.forEach((m) => {
+        const f = d.forecast.find((x) => x.horizon_days === h && x.min_mag === m);
+        html += `<td class="${probCls(f.probability)}">%${(f.probability * 100).toFixed(1)}<br><small class="muted">~${f.expected.toFixed(2)} adet</small></td>`;
+      });
+      html += `</tr>`;
+    });
+    html += `</table>
+      <p class="muted" style="margin-top:8px">En az bir M≥m artçı olasılığı (Reasenberg-Jones).
+      Dizi ne kadar eskiyse olasılıklar o kadar düşer — bu beklenen davranıştır.</p>`;
+  }
+  el.innerHTML = html;
 }
 
 /* ── başlat ── */

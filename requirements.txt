@@ -14,3 +14,4 @@ uvicorn[standard]>=0.52
 # Test
 pytest>=9.1
 httpx>=0.28
+scipy>=1.18

@@ -29,6 +29,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.config import PATHS  # noqa: E402
 from src.fetch_kandilli import api_status, get_live  # noqa: E402
 from src.pipeline import load_merged  # noqa: E402
+from src.seismology import (  # noqa: E402
+    aftershock_forecast,
+    b_value,
+    b_value_grid,
+    estimate_mc,
+    gardner_knopoff,
+    gr_curve,
+)
 
 app = FastAPI(title="TR Earthquake AI", version="2.0")
 
@@ -177,6 +185,107 @@ def api_stats(
             "counts": depth_hist.tolist(),
         },
     }
+
+
+# ── Sismoloji analizleri ─────────────────────────────────────────────────────
+
+_declustered: pd.DataFrame | None = None
+_bmap_cache: dict[str, list] = {}
+
+
+_decluster_lock = threading.Lock()
+
+
+def declustered_catalog() -> pd.DataFrame:
+    """Gardner-Knopoff ile ayıklanmış katalog (süreç başına bir kez hesaplanır)."""
+    global _declustered
+    base = catalog()  # kendi kilidini alır — _decluster_lock içinde ÇAĞIRMA (deadlock)
+    with _decluster_lock:
+        if _declustered is None:
+            _declustered = gardner_knopoff(base)
+        return _declustered
+
+
+@app.get("/api/analysis/gr")
+def api_gr(
+    start: str | None = None,
+    end: str | None = None,
+    min_mag: float = 0.0,
+    max_mag: float = 10.0,
+    declustered: bool = False,
+):
+    """Gutenberg-Richter analizi: Mc, b-değeri ve kümülatif eğri."""
+    df = _filter_catalog(start, end, min_mag, max_mag, 0.0, 1000.0, None)
+    if declustered:
+        keep = declustered_catalog()
+        df = df.merge(keep[keep["is_mainshock"]][["eventDate", "latitude", "longitude"]],
+                      on=["eventDate", "latitude", "longitude"], how="inner")
+
+    mags = df["magnitude"].to_numpy()
+    if len(mags) < 50:
+        raise HTTPException(status_code=400, detail="Bu filtrelerle güvenilir analiz için yeterli kayıt yok (min 50).")
+
+    mc = estimate_mc(mags)
+    fit = b_value(mags, mc) if mc is not None else None
+    return {
+        "n_total": int(len(mags)),
+        "mc": mc,
+        "fit": fit,
+        "declustered": declustered,
+        "curve": gr_curve(mags, mc, fit),
+    }
+
+
+@app.get("/api/analysis/decluster")
+def api_decluster():
+    """Katalog ayıklama özeti (Gardner-Knopoff)."""
+    df = declustered_catalog()
+    n = len(df)
+    main = int(df["is_mainshock"].sum())
+    return {
+        "total": n,
+        "mainshocks": main,
+        "aftershocks": n - main,
+        "aftershock_pct": round(100 * (n - main) / n, 1) if n else 0,
+    }
+
+
+@app.get("/api/analysis/bmap")
+def api_bmap(declustered: bool = True, cell_deg: float = Query(1.0, ge=0.25, le=2.0)):
+    """Izgara bazlı b-değeri haritası."""
+    key = f"{declustered}-{cell_deg}"
+    if key not in _bmap_cache:
+        df = declustered_catalog()
+        if declustered:
+            df = df[df["is_mainshock"]]
+        _bmap_cache[key] = b_value_grid(df, cell_deg=cell_deg)
+    cells = _bmap_cache[key]
+    return {"count": len(cells), "cells": cells, "declustered": declustered}
+
+
+@app.get("/api/analysis/mainshocks")
+def api_mainshocks(min_mag: float = 6.0, since: str = "1990-01-01",
+                   limit: int = Query(30, le=100)):
+    """Artçı şok tahmini için aday ana şoklar (en büyükten küçüğe).
+
+    Varsayılan olarak modern enstrümantal dönemle (1990+) sınırlanır: daha eski
+    ana şokların artçı dizileri M≥4 katalogda temsil edilmediğinden Omori
+    uyumu kurulamaz.
+    """
+    df = catalog()
+    df = df[(df["magnitude"] >= min_mag) & (df["eventDate"] >= pd.Timestamp(since))]
+    df = df.sort_values("magnitude", ascending=False).head(limit)
+    return {"mainshocks": _records(df[["eventDate", "latitude", "longitude", "magnitude", "location"]])}
+
+
+@app.get("/api/analysis/aftershock")
+def api_aftershock(time: str, lat: float, lon: float, mag: float):
+    """Seçilen ana şok dizisi için Omori-Utsu / Reasenberg-Jones tahmini."""
+    try:
+        t0 = pd.Timestamp(time).tz_localize(None) if pd.Timestamp(time).tzinfo else pd.Timestamp(time)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Geçersiz zaman formatı.")
+    return aftershock_forecast(catalog(), t0, lat, lon, mag)
 
 
 @app.get("/api/faults")

@@ -15,8 +15,6 @@ PATHS = {
     "fault_risk":     os.path.join(DATA_DIR, "fay_risk_skorlari.csv"),
     "afad_csv":       os.path.join(DATA_DIR, "m5_depremler.csv"),
     "usgs_csv":       os.path.join(DATA_DIR, "usgs_1900_1990.csv"),
-    "risk_model":     os.path.join(DATA_DIR, "risk_model.pkl"),
-    "cluster_model":  os.path.join(DATA_DIR, "cluster_model.pkl"),
 }
 
 # Harita varsayılanları
@@ -67,13 +65,4 @@ FAULT = {
 # Zaman dilimi
 TZ = {
     "kandilli_local": "Europe/Istanbul",  # Kandilli API yerel saat döner → UTC'ye çevrilir
-}
-
-# ML (Faz 2'de b-value/ETAS ile değiştirilecek — şimdilik ml_model.py uyumluluğu için)
-ML = {
-    "n_clusters":    5,
-    "rf_estimators": 200,
-    "test_size":     0.2,
-    "random_state":  42,
-    "max_map_points": 3000,
 }

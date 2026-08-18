@@ -158,6 +158,28 @@ input.narrow { width: 64px; }
   height: 300px;
 }
 .card.wide { grid-column: 1 / -1; }
+.card.info {
+  height: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+  border-left: 3px solid var(--blue);
+}
+.card.info b, .card.info i { color: var(--text); }
+.card-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+.card.map-card { height: auto; }
+.map.bmap { min-height: 300px; height: 300px; }
+.card.forecast-card { height: auto; }
+.forecast-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+.forecast-table th, .forecast-table td {
+  padding: 7px 10px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.forecast-table th { color: var(--muted); font-weight: 600; font-size: 11px; }
+.prob-high { color: var(--accent); font-weight: 700; }
+.prob-mid  { color: var(--yellow); font-weight: 700; }
+.prob-low  { color: var(--muted); }
 
 footer {
   padding: 10px 20px;
