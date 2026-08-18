@@ -18,6 +18,8 @@ PATHS = {
     "settlements":    os.path.join(DATA_DIR, "yerlesimler.parquet"),
     "shelters":       os.path.join(DATA_DIR, "toplanma_alanlari.geojson"),
     "dyfi":           os.path.join(DATA_DIR, "dyfi_gozlemler.parquet"),
+    "fault_sources":  os.path.join(DATA_DIR, "fay_kaynaklari.geojson"),
+    "vs30":           os.path.join(DATA_DIR, "vs30_turkiye.npz"),
 }
 
 # Harita varsayılanları
@@ -113,4 +115,28 @@ DEEPEN = {
     "start_year": 2005,
     "end_year":   2026,
     "min_mag":    3.0,
+}
+
+# Fay kaynak modeli (senaryo üretimi)
+SOURCES = {
+    "min_magnitude":    6.5,    # yalnızca büyük deprem üretebilen faylar
+    "horizons":         (30, 50),   # olasılık ufukları (yıl)
+    "dup_centroid_km":  15.0,   # SHARE/EMME örtüşme eşiği — merkez mesafesi
+    "dup_length_frac":  0.25,   # ...ve uzunluk farkı oranı
+}
+
+# Zemin verisi (USGS küresel Vs30 penceresi)
+VS30 = {
+    "pad_deg":      0.5,     # bbox'a eklenen pay
+    "default_ms":   600.0,   # ızgarada değer yoksa varsayılan (ortalama zemin)
+    "reference_ms": 760.0,   # GMPE referans kaya hızı (NEHRP B/C sınırı)
+}
+
+# Şiddet denkleminin KIRILMA YÜZEYİ (Rrup) varyantı — sonlu fay senaryoları için.
+# Allen, Wald & Worden (2012); katsayılar OpenQuake allen_2012_ipe.py ile birebir.
+# Not: Faz 4'teki hiposantr (Rhyp) varyantından AYRI bir katsayı setidir.
+IPE_RRUP = {
+    "c0": 3.950, "c1": 0.913, "c2": -1.107, "c3": 0.813,
+    "s1": 0.72, "s2": 0.23, "s3": 44.7,
+    "max_distance_km": 300.0,
 }

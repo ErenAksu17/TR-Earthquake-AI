@@ -11,6 +11,10 @@ Uçlar:
   GET /api/validation/intensity     Şiddet modeli vs DYFI gözlemleri
   GET /api/validation/aftershock    Artçı tahmininin sözde-ileriye dönük N-testi
   GET /api/catalog/completeness     Kataloğun zamanla değişen tamlık eşiği
+  GET /api/faults/sources           Fay kaynak modeli (Mmax, yinelenme, olasılık)
+  GET /api/faults/geometry          Fay kaynaklarının GeoJSON geometrisi
+  GET /api/scenario?fault_id=       Fay kırılma senaryosu (sonlu fay + zemin)
+  GET /api/vs30                     Vs30 ızgarasının özeti ve sınırları
   GET /api/faults                   Sadeleştirilmiş diri fay GeoJSON'u
   GET /api/status                   Kaynak API erişilebilirlik durumu
   GET /                             Leaflet tabanlı arayüz (app/static)
@@ -20,6 +24,7 @@ yerel saate çeviri istemcide yapılır.
 """
 
 import io
+import json
 import os
 import sys
 import threading
@@ -35,6 +40,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.catalog_compare import compare_window, sample_pairs  # noqa: E402
 from src.config import COMPARE, PATHS  # noqa: E402
 from src.deepen_catalog import catalog_completeness  # noqa: E402
+from src.fault_sources import load_fault_sources, sources_table  # noqa: E402
+from src.scenario import run_scenario  # noqa: E402
+from src.site_effects import vs30_summary  # noqa: E402
 from src.fetch_kandilli import api_status, get_live  # noqa: E402
 from src.impact import assess, nearby_shelters  # noqa: E402
 from src.validation import validate_aftershock_forecasts, validate_intensity  # noqa: E402
@@ -395,6 +403,62 @@ def api_validate_aftershock(
 def api_completeness():
     """Kataloğun dönemleri ve tamlık eşikleri — sayı karşılaştırma tuzağı uyarısı."""
     return catalog_completeness(catalog())
+
+
+# ── Fay senaryoları ──────────────────────────────────────────────────────────
+
+_scenario_cache: dict[str, dict] = {}
+
+
+@app.get("/api/faults/sources")
+def api_fault_sources(limit: int = Query(300, ge=1, le=1000)):
+    """Büyük deprem üretebilen faylar — Mmax, yinelenme aralığı ve olasılıklar."""
+    try:
+        return {"faults": sources_table(limit=limit)}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/api/faults/geometry")
+def api_fault_geometry():
+    """Fay kaynaklarının harita için GeoJSON'u."""
+    try:
+        gdf = load_fault_sources()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    cols = ["fault_id", "label", "slip_type", "mmax", "recurrence_years", "p30", "p50", "geometry"]
+    return json.loads(gdf[[c for c in cols if c in gdf.columns]].to_json())
+
+
+@app.get("/api/scenario")
+def api_scenario(
+    fault_id: str,
+    rupture_fraction: float = Query(1.0, ge=0.05, le=1.0),
+    magnitude: float | None = Query(None, ge=4.0, le=8.5),
+):
+    """Seçilen fay için kırılma senaryosu."""
+    key = f"{fault_id}|{rupture_fraction}|{magnitude}"
+    if key in _scenario_cache:
+        return _scenario_cache[key]
+    try:
+        result = run_scenario(fault_id, rupture_fraction, magnitude)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    if len(_scenario_cache) > 200:
+        _scenario_cache.clear()
+    _scenario_cache[key] = result
+    return result
+
+
+@app.get("/api/vs30")
+def api_vs30():
+    """Zemin (Vs30) ızgarasının özeti ve bilinen sınırları."""
+    try:
+        return vs30_summary()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 @app.get("/api/faults")

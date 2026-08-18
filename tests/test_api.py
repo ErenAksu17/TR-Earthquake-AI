@@ -281,3 +281,47 @@ class TestCatalogCompleteness:
         historic, modern = b["eras"]
         assert modern["nominal_min_mag"] < historic["nominal_min_mag"]
         assert "karşılaştırılamaz" in b["warning"]
+
+
+class TestScenarioEndpoints:
+
+    def test_fault_sources(self, client):
+        r = client.get("/api/faults/sources?limit=20")
+        assert r.status_code == 200
+        faults = r.json()["faults"]
+        assert len(faults) > 0
+        assert all(f["mmax"] >= 6.5 for f in faults)
+        # 50 yıllık olasılığa göre azalan sırada
+        probs = [f["p50"] for f in faults if f["p50"] is not None]
+        assert probs == sorted(probs, reverse=True)
+
+    def test_fault_geometry_geojson(self, client):
+        r = client.get("/api/faults/geometry")
+        assert r.status_code == 200
+        assert r.json()["type"] == "FeatureCollection"
+
+    def test_scenario_runs(self, client):
+        fid = client.get("/api/faults/sources?limit=1").json()["faults"][0]["fault_id"]
+        r = client.get("/api/scenario", params={"fault_id": fid})
+        assert r.status_code == 200
+        b = r.json()
+        assert b["rupture"]["magnitude"] > 5.0
+        assert b["site_effect"] is not None
+
+    def test_scenario_partial_rupture(self, client):
+        fid = client.get("/api/faults/sources?limit=1").json()["faults"][0]["fault_id"]
+        full = client.get("/api/scenario", params={"fault_id": fid}).json()
+        part = client.get("/api/scenario", params={"fault_id": fid, "rupture_fraction": 0.3}).json()
+        assert part["rupture"]["magnitude"] < full["rupture"]["magnitude"]
+
+    def test_scenario_unknown_fault_404(self, client):
+        assert client.get("/api/scenario", params={"fault_id": "YOK"}).status_code == 404
+
+    def test_scenario_rejects_bad_fraction(self, client):
+        assert client.get("/api/scenario",
+                          params={"fault_id": "F0000", "rupture_fraction": 5}).status_code == 422
+
+    def test_vs30_summary(self, client):
+        b = client.get("/api/vs30").json()
+        assert b["vs30_min"] > 0 and b["vs30_max"] > b["vs30_min"]
+        assert "mikrobölgeleme" in b["caveat"]

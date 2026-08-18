@@ -89,7 +89,30 @@
 > mertebe fikri verir. Toplanma alanları OSM topluluk verisidir (~710 nokta) ve
 > **eksiktir** — AFAD'ın resmî listesi değildir.
 
-### ✅ Doğrulama *(Yeni)*
+### 🏔️ Fay Senaryosu *(Yeni)*
+"Şu fay kırılırsa ne olur?" — bilimsel kaynak modeliyle alternatif senaryolar.
+
+- **478 kabuk fayı** (SHARE + EMME hakemli tehlike modelleri), her biri için
+  kayma hızı, eğim, rake ve sismojenik derinlik
+- **Maksimum büyüklük:** kırılma alanından *Wells & Coppersmith (1994)*
+- **Yinelenme aralığı:** kayma hızından **sismik moment dengesi** → 30/50 yıllık
+  Poisson olasılığı
+- **Kırılan bölüm seçilebilir** (%10–100): aynı fayda farklı senaryolar
+- **Sonlu fay:** uzaklık artık hiposantr değil **fay hattına en kısa mesafe**;
+  şiddet denkleminin Rrup varyantı kullanılır (Faz 4'ün nokta-kaynak sınırı kalkar)
+- **Zemin etkisi:** her yerleşimin **Vs30** değeri (USGS küresel ızgara, ~1 km)
+  ile sarsıntı düzeltilir — *Boore vd. (2014)* saha terimleri + *Wald vd. (1999)*
+  MMI dönüşümü. Kayadaki ve zemin düzeltmeli şiddet **yan yana** gösterilir
+- Doğrusal olmayan zemin davranışı modellenir: yumuşak zemin kuvvetli sarsıntıda
+  doyar (fay yakınında büyütme az, uzakta çok)
+
+> **Bu bir tahmin değil, senaryodur.** Fayın ne zaman kırılacağını söylemez.
+> Moment dengesi tüm kaymanın büyük depremlerde boşaldığını varsaydığı için
+> yinelenme aralıkları **alt sınırdır**. Vs30 topoğrafik eğimden türetilmiş
+> vekil veridir — **mikrobölgeleme yerine geçmez**. Fay adları veri setinde
+> yoktur; faylar geçtikleri yerleşimlere göre etiketlenmiştir.
+
+### ✅ Doğrulama
 Bu proje kendi tahminlerini test eder ve sonucu — modelin lehine olmasa bile — yayımlar.
 
 - **Şiddet modeli vs gerçek gözlemler:** USGS DYFI ("Depremi hissettiniz mi?")
@@ -192,6 +215,10 @@ cd frontend && npm install && npm run dev
 | `GET /api/validation/intensity` | Şiddet modeli vs DYFI gözlemleri |
 | `GET /api/validation/aftershock` | Artçı tahmininin N-testi + operasyonel ölçütler |
 | `GET /api/catalog/completeness` | Kataloğun dönemleri ve tamlık eşikleri |
+| `GET /api/faults/sources` | Fay kaynak modeli (Mmax, yinelenme, olasılık) |
+| `GET /api/faults/geometry` | Fay kaynaklarının GeoJSON'u |
+| `GET /api/scenario?fault_id=&rupture_fraction=` | Fay kırılma senaryosu |
+| `GET /api/vs30` | Zemin ızgarasının özeti ve sınırları |
 
 Tüm zamanlar **UTC (ISO 8601, `Z` sonekli)** döner; yerel saate çeviri istemcinin işidir.
 
@@ -208,6 +235,8 @@ Tüm zamanlar **UTC (ISO 8601, `Z` sonekli)** döner; yerel saate çeviri istemc
 | **GeoNames** (CC BY 4.0) | 894 il/ilçe merkezi + nüfus | Statik |
 | **OpenStreetMap** (ODbL) | Toplanma alanları (~710, eksik) | Statik |
 | **USGS DYFI** | 5.779 gözlenen şiddet raporu (doğrulama) | Statik |
+| **GEM Global Active Faults** | 478 kabuk fayı (SHARE + EMME) | Statik |
+| **USGS Vs30** (Heath vd. 2020) | Zemin ızgarası, ~1 km | Statik |
 
 > Canlı veri birincil olarak [orhanayd/kandilli-rasathanesi-api](https://github.com/orhanayd/kandilli-rasathanesi-api)
 > üzerinden çekilir; erişilemezse AFAD resmî `apiv2` API'sine otomatik düşülür.
@@ -246,7 +275,11 @@ TR-Earthquake-AI/
 │   ├── prepare_exposure.py   ← Yerleşim ve toplanma alanı verisi hazırlar
 │   ├── validation.py         ← Model doğrulama: DYFI kıyası + N-testi (YENİ)
 │   ├── prepare_validation.py ← USGS DYFI gözlemlerini indirir
-│   ├── deepen_catalog.py     ← Modern dönemi M≥3'e derinleştirir (YENİ)
+│   ├── deepen_catalog.py     ← Modern dönemi M≥3'e derinleştirir
+│   ├── fault_sources.py      ← Fay kaynak modeli: Mmax, yinelenme, olasılık (YENİ)
+│   ├── site_effects.py       ← Vs30 zemin büyütmesi (Boore 2014 + Wald 1999) (YENİ)
+│   ├── scenario.py           ← Sonlu fay kırılma senaryosu (YENİ)
+│   ├── prepare_vs30.py       ← USGS Vs30 Türkiye penceresini çeker (YENİ)
 │   └── fay_risk_analiz.py    ← Fay bazlı aktivite skoru (metrik CRS, en-yakın-fay ataması)
 │
 ├── data/
@@ -254,7 +287,7 @@ TR-Earthquake-AI/
 │   ├── diri_faylar_simplified.geojson ← Web için sadeleştirilmiş faylar (~0,2 MB)
 │   └── diri_faylar.geojson   ← Orijinal fay veritabanı (~12 MB)
 │
-├── tests/                    ← pytest (pipeline + API + sismoloji + karşılaştırma + etki + doğrulama, 139 test)
+├── tests/                    ← pytest (pipeline + API + sismoloji + karşılaştırma + etki + doğrulama + senaryo, 176 test)
 ├── .github/workflows/ci.yml  ← GitHub Actions (her push'ta testler)
 ├── requirements.txt
 └── README.md

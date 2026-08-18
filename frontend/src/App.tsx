@@ -1,6 +1,6 @@
 import { useState } from "react"
 import {
-  Activity, BarChart3, CheckCircle2, Globe2, Microscope, Radio, Scale,
+  Activity, BarChart3, CheckCircle2, Globe2, Microscope, Mountain, Radio, Scale,
 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LiveView } from "@/views/LiveView"
@@ -9,6 +9,7 @@ import { SeismologyView } from "@/views/SeismologyView"
 import { CompareView } from "@/views/CompareView"
 import { ImpactView } from "@/views/ImpactView"
 import { ValidationView } from "@/views/ValidationView"
+import { ScenarioView } from "@/views/ScenarioView"
 import { cn } from "@/lib/utils"
 
 const TABS = [
@@ -17,6 +18,7 @@ const TABS = [
   { id: "seismo", label: "Sismoloji", icon: Microscope },
   { id: "compare", label: "Kaynak Karşılaştırma", icon: Scale },
   { id: "impact", label: "Etki Analizi", icon: Activity },
+  { id: "scenario", label: "Fay Senaryosu", icon: Mountain },
   { id: "validation", label: "Doğrulama", icon: CheckCircle2 },
 ]
 
@@ -67,6 +69,7 @@ export default function App() {
           <TabsContent value="seismo" className="mt-0">{tab === "seismo" && <SeismologyView />}</TabsContent>
           <TabsContent value="compare" className="mt-0">{tab === "compare" && <CompareView />}</TabsContent>
           <TabsContent value="impact" className="mt-0">{tab === "impact" && <ImpactView />}</TabsContent>
+          <TabsContent value="scenario" className="mt-0">{tab === "scenario" && <ScenarioView />}</TabsContent>
           <TabsContent value="validation" className="mt-0">{tab === "validation" && <ValidationView />}</TabsContent>
         </main>
       </Tabs>
