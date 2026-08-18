@@ -72,6 +72,21 @@
 > yalnızca AFAD'da, 50 olay yalnızca USGS'tedir**. Medyan episantr farkı 7,7 km,
 > en büyüğü 91 km. Pazarcık ana şoku AFAD'da M7.7 (MW), USGS'te M7.8 (mww).
 
+### 💥 Etki Analizi *(Yeni)*
+- Bir deprem (geçmişteki ya da senaryo) her **il/ilçe merkezinde** ne şiddette
+  hissedilir? — *Allen, Wald & Worden (2012)* makrosismik şiddet denklemi (IPE),
+  hipomerkez uzaklığı varyantı
+- Haritada **MMI şiddet halkaları**, yerleşim bazlı şiddet ve belirsizlik (±σ)
+- Şiddet bandı başına etkilenen yerleşim sayısı ve **yaklaşık nüfus**
+- **Toplanma alanları** katmanı (OpenStreetMap)
+
+> **Dürüstlük notu — bu bir hasar tahmini DEĞİLDİR.** Model nokta kaynak varsayar
+> (büyük depremlerde fay onlarca km uzanır → yakın alan olduğundan az tahmin
+> edilir), zemin büyütmesini modellemez ve 300 km'ye kadar geçerlidir.
+> Nüfus verisi il düzeyinde ölçülen **−%31 … +%32** sapmaya sahiptir; yalnızca
+> mertebe fikri verir. Toplanma alanları OSM topluluk verisidir (~710 nokta) ve
+> **eksiktir** — AFAD'ın resmî listesi değildir.
+
 ### 🧭 Veri Kalitesi
 - **16.150+ kayıt** (M ≥ 4, 1900–2025), EventID bazlı tekilleştirme
 - Ham veri iki sistematik bozulma içerir, ikisi de pipeline'da düzeltilir:
@@ -135,6 +150,8 @@ Tarayıcıda aç → `http://localhost:8021`
 | `GET /api/analysis/mainshocks` | Tahmin için aday ana şoklar |
 | `GET /api/analysis/aftershock?time=&lat=&lon=&mag=` | Omori-Utsu artçı şok tahmini |
 | `GET /api/compare?start=&end=&min_mag=` | AFAD ↔ USGS katalog karşılaştırması (30 dk önbellek) |
+| `GET /api/impact?mag=&lat=&lon=&depth=` | Sarsıntı şiddeti (MMI) ve yerleşim maruziyeti |
+| `GET /api/shelters?lat=&lon=&radius_km=` | Toplanma alanları (OSM, eksik) |
 
 Tüm zamanlar **UTC (ISO 8601, `Z` sonekli)** döner; yerel saate çeviri istemcinin işidir.
 
@@ -148,6 +165,8 @@ Tüm zamanlar **UTC (ISO 8601, `Z` sonekli)** döner; yerel saate çeviri istemc
 | **AFAD** — Afet ve Acil Durum Yönetimi Başkanlığı | Gerçek zamanlı + arşiv | Her dakika |
 | **USGS** — ABD Jeoloji Araştırmaları Kurumu | 1900–1990 arşiv + canlı karşılaştırma (Türkiye eşiği ~M4.0) | FDSNWS |
 | **Diri Fay Veritabanı** | Türkiye aktif fay hatları | Statik |
+| **GeoNames** (CC BY 4.0) | 894 il/ilçe merkezi + nüfus | Statik |
+| **OpenStreetMap** (ODbL) | Toplanma alanları (~710, eksik) | Statik |
 
 > Canlı veri birincil olarak [orhanayd/kandilli-rasathanesi-api](https://github.com/orhanayd/kandilli-rasathanesi-api)
 > üzerinden çekilir; erişilemezse AFAD resmî `apiv2` API'sine otomatik düşülür.
@@ -176,7 +195,9 @@ TR-Earthquake-AI/
 │   ├── combine_excels.py     ← Ham Excel dışa aktarımlarını birleştirir
 │   ├── preprocess.py         ← Sütun standardizasyonu
 │   ├── seismology.py         ← b-değeri, Mc, Gardner-Knopoff, Omori-Utsu
-│   ├── catalog_compare.py    ← AFAD ↔ USGS katalog eşleştirme ve fark analizi (YENİ)
+│   ├── catalog_compare.py    ← AFAD ↔ USGS katalog eşleştirme ve fark analizi
+│   ├── impact.py             ← Şiddet denklemi (IPE) + yerleşim maruziyeti (YENİ)
+│   ├── prepare_exposure.py   ← Yerleşim ve toplanma alanı verisi hazırlar (YENİ)
 │   └── fay_risk_analiz.py    ← Fay bazlı aktivite skoru (metrik CRS, en-yakın-fay ataması)
 │
 ├── data/
@@ -184,7 +205,7 @@ TR-Earthquake-AI/
 │   ├── diri_faylar_simplified.geojson ← Web için sadeleştirilmiş faylar (~0,2 MB)
 │   └── diri_faylar.geojson   ← Orijinal fay veritabanı (~12 MB)
 │
-├── tests/                    ← pytest (pipeline + API + sismoloji + karşılaştırma, 75 test)
+├── tests/                    ← pytest (pipeline + API + sismoloji + karşılaştırma + etki, 111 test)
 ├── .github/workflows/ci.yml  ← GitHub Actions (her push'ta testler)
 ├── requirements.txt
 └── README.md

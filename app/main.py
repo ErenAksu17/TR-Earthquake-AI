@@ -6,6 +6,8 @@ Uçlar:
   GET /api/quakes?...               Filtreli arşiv kataloğu (JSON veya CSV)
   GET /api/stats?...                Filtreli arşiv istatistikleri (grafikler için)
   GET /api/compare?...              Çoklu katalog karşılaştırması (AFAD vs USGS)
+  GET /api/impact?...               Sarsıntı şiddeti ve yerleşim maruziyeti (IPE)
+  GET /api/shelters?...             Toplanma alanları (OSM, eksik topluluk verisi)
   GET /api/faults                   Sadeleştirilmiş diri fay GeoJSON'u
   GET /api/status                   Kaynak API erişilebilirlik durumu
   GET /                             Leaflet tabanlı arayüz (app/static)
@@ -30,6 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.catalog_compare import compare_window, sample_pairs  # noqa: E402
 from src.config import COMPARE, PATHS  # noqa: E402
 from src.fetch_kandilli import api_status, get_live  # noqa: E402
+from src.impact import assess, nearby_shelters  # noqa: E402
 from src.pipeline import load_merged  # noqa: E402
 from src.seismology import (  # noqa: E402
     aftershock_forecast,
@@ -323,6 +326,33 @@ def api_compare(
     with _compare_lock:
         _compare_cache[key] = (now, result)
     return result
+
+
+# ── Etki analizi (sarsıntı şiddeti + maruziyet) ──────────────────────────────
+
+@app.get("/api/impact")
+def api_impact(
+    mag: float = Query(..., ge=3.0, le=9.0),
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+    depth: float = Query(10.0, ge=0.0, le=700.0),
+    min_mmi: float = Query(3.0, ge=1.0, le=12.0),
+):
+    """Bir deprem (gerçek veya senaryo) için yerleşim bazlı şiddet analizi."""
+    try:
+        return assess(mag, lat, lon, depth, min_mmi=min_mmi)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/api/shelters")
+def api_shelters(
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+    radius_km: float = Query(30.0, gt=0, le=200),
+):
+    """Çevredeki toplanma alanları — OSM topluluk verisi, EKSİKTİR."""
+    return nearby_shelters(lat, lon, radius_km)
 
 
 @app.get("/api/faults")

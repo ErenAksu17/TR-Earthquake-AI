@@ -206,3 +206,11 @@ footer {
   font-size: 12px;
   color: var(--text);
 }
+
+/* Etki analizi */
+.band-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid var(--border); }
+.band-chip { min-width: 44px; text-align: center; font-weight: 700; font-size: 12px; padding: 4px 6px; border-radius: 6px; color: #fff; }
+.band-meta { display: flex; flex-direction: column; }
+.band-label { font-size: 13px; font-weight: 600; }
+.card.info ul { margin: 6px 0 0 18px; }
+.card.info li { margin-bottom: 4px; }

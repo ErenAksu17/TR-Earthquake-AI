@@ -15,6 +15,8 @@ PATHS = {
     "fault_risk":     os.path.join(DATA_DIR, "fay_risk_skorlari.csv"),
     "afad_csv":       os.path.join(DATA_DIR, "m5_depremler.csv"),
     "usgs_csv":       os.path.join(DATA_DIR, "usgs_1900_1990.csv"),
+    "settlements":    os.path.join(DATA_DIR, "yerlesimler.parquet"),
+    "shelters":       os.path.join(DATA_DIR, "toplanma_alanlari.geojson"),
 }
 
 # Harita varsayılanları
@@ -73,4 +75,23 @@ COMPARE = {
     "dist_tolerance_km": 120,   # kurumlar arası episantr farkı payı (deniz olayları geniş)
     "timeout":           60,
     "cache_ttl_s":       1800,  # karşılaştırma sonucu önbelleği (30 dk)
+}
+
+# Etki analizi — Allen, Wald & Worden (2012) makrosismik şiddet denklemi (IPE)
+# Hipomerkez uzaklığı (Rhyp) varyantı: katalogda fay geometrisi olmadığı için
+# nokta-kaynak varsayımı kullanılır. Kaynak: J. Seismology 16:409-433,
+# katsayılar OpenQuake hazardlib/gsim/allen_2012_ipe.py ile birebir.
+IPE = {
+    "c0": 2.085, "c1": 1.428, "c2": -1.402, "c4": 0.078,
+    "m1": -0.209, "m2": 2.042,
+    "s1": 0.82, "s2": 0.37, "s3": 22.9,   # sigma = s1 + s2/(1+(R/s3)^2)
+    "anelastic_from_km": 50.0,
+    "max_distance_km": 300.0,             # denklemin geçerli olduğu üst sınır
+}
+
+# Nüfus maruziyeti verisinin ölçülmüş belirsizliği (TÜİK il nüfuslarına karşı)
+EXPOSURE = {
+    "province_error_low": -0.31,
+    "province_error_high": 0.32,
+    "coverage_note": "Yalnızca il/ilçe merkezleri; kırsal yerleşimler dahil değil.",
 }

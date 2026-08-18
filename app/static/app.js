@@ -32,16 +32,18 @@ document.querySelectorAll(".tab").forEach((btn) =>
     document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     const view = btn.dataset.view;
-    ["live", "archive", "seismo", "compare"].forEach((v) =>
+    ["live", "archive", "seismo", "compare", "impact"].forEach((v) =>
       document.getElementById(`view-${v}`).classList.toggle("hidden", v !== view)
     );
     if (view === "archive") initArchive();
     if (view === "seismo") initSeismo();
     if (view === "compare") initCompare();
+    if (view === "impact") initImpact();
     setTimeout(() => {
       liveMap.invalidateSize();
       archMap && archMap.invalidateSize();
       bMap && bMap.invalidateSize();
+      impactMap && impactMap.invalidateSize();
     }, 60);
   })
 );
@@ -599,6 +601,188 @@ function drawPairTable(pairs) {
   bulunduğu için eşleşmesi belirsiz olan olaylardır.</p>`;
 }
 
+/* ══════════ ETKİ ANALİZİ ══════════ */
+let impactMap = null;
+let impactLayer = null;
+let shelterLayer = null;
+let impactInited = false;
+let lastImpact = null;
+
+async function initImpact() {
+  if (impactInited) return;
+  impactInited = true;
+  impactMap = L.map("map-impact", { preferCanvas: true }).setView([39.5, 33], 6);
+  tileLayer().addTo(impactMap);
+  const gj = await loadFaults();
+  if (gj) L.geoJSON(gj, { style: { ...faultStyle, opacity: 0.3 } }).addTo(impactMap);
+
+  document.getElementById("i-apply").addEventListener("click", runImpact);
+  document.getElementById("i-shelters").addEventListener("change", toggleShelters);
+  document.getElementById("i-event").addEventListener("change", (e) => {
+    if (!e.target.value) return;
+    const ev = JSON.parse(e.target.value);
+    document.getElementById("i-mag").value = ev.magnitude;
+    document.getElementById("i-lat").value = ev.latitude.toFixed(3);
+    document.getElementById("i-lon").value = ev.longitude.toFixed(3);
+    document.getElementById("i-depth").value = Math.max(1, Math.round(ev.depth || 10));
+    runImpact();
+  });
+
+  fetch("/api/analysis/mainshocks?min_mag=6.5&limit=40")
+    .then((r) => r.json())
+    .then((d) => {
+      document.getElementById("i-event").insertAdjacentHTML(
+        "beforeend",
+        d.mainshocks
+          .map((m) => `<option value='${JSON.stringify(m)}'>M ${m.magnitude.toFixed(1)} — ${(m.location || "?").slice(0, 36)} (${m.eventDate.slice(0, 10)})</option>`)
+          .join("")
+      );
+    });
+
+  await runImpact();
+}
+
+async function runImpact() {
+  const p = new URLSearchParams({
+    mag: document.getElementById("i-mag").value,
+    lat: document.getElementById("i-lat").value,
+    lon: document.getElementById("i-lon").value,
+    depth: document.getElementById("i-depth").value,
+  });
+  const r = await fetch(`/api/impact?${p}`);
+  if (!r.ok) {
+    document.getElementById("i-kpis").innerHTML = kpi("Hata", "Hesaplanamadı");
+    return;
+  }
+  const d = await r.json();
+  lastImpact = d;
+
+  const strong = d.bands.find((b) => b.mmi_min === 7.0);
+  document.getElementById("i-kpis").innerHTML =
+    kpi("En yüksek şiddet", d.max_mmi ? `MMI ${d.max_mmi.toFixed(1)}` : "—") +
+    kpi("Etkilenen yerleşim", d.total_settlements.toLocaleString("tr-TR")) +
+    kpi("Yaklaşık nüfus", `~${(d.total_population / 1e6).toFixed(1)} milyon`) +
+    kpi("MMI VII+ nüfus", strong ? `~${(strong.population / 1e6).toFixed(1)} milyon` : "yok");
+
+  document.getElementById("i-bands").innerHTML = d.bands.length
+    ? d.bands
+        .slice()
+        .reverse()
+        .map(
+          (b) => `
+      <div class="band-row">
+        <span class="band-chip" style="background:${b.color}">${b.roman}</span>
+        <div class="band-meta">
+          <span class="band-label">${b.label}</span>
+          <span class="muted">${b.settlements} yerleşim · ~${(b.population / 1e6).toFixed(2)} milyon kişi${b.radius_km ? ` · ~${b.radius_km.toFixed(0)} km${b.beyond_model_range ? "+" : ""}` : ""}</span>
+        </div>
+      </div>`
+        )
+        .join("")
+    : `<p class="muted">Kayda değer şiddet beklenen yerleşim yok.</p>`;
+
+  drawImpactMap(d);
+  drawSettlementTable(d);
+
+  document.getElementById("i-caveats").innerHTML =
+    "<b>Sınırlar:</b><ul>" + d.caveats.map((c) => `<li>${c}</li>`).join("") + "</ul>";
+}
+
+function mmiColor(m) {
+  return m >= 9 ? "#67000d" : m >= 8 ? "#a50f15" : m >= 7 ? "#ef3b2c"
+    : m >= 6 ? "#fd8d3c" : m >= 5 ? "#fecc5c" : m >= 4 ? "#c7e9b4" : "#7fcdbb";
+}
+
+function drawImpactMap(d) {
+  if (impactLayer) impactMap.removeLayer(impactLayer);
+  const layers = [];
+
+  d.bands
+    .slice()
+    .reverse()
+    .forEach((b) => {
+      if (!b.radius_km) return;
+      layers.push(
+        L.circle([d.event.lat, d.event.lon], {
+          radius: b.radius_km * 1000,
+          color: b.color, weight: 1.5, fillColor: b.color, fillOpacity: 0.12,
+          dashArray: b.beyond_model_range ? "6 6" : null,
+        }).bindPopup(`<b>MMI ${b.roman}</b> — ${b.label}<br>~${b.radius_km.toFixed(0)} km${b.beyond_model_range ? " (model sınırı)" : ""}<br>${b.settlements} yerleşim`)
+      );
+    });
+
+  layers.push(
+    L.marker([d.event.lat, d.event.lon]).bindPopup(
+      `<b>M ${d.event.magnitude.toFixed(1)}</b><br>derinlik ${d.event.depth_km.toFixed(0)} km`
+    )
+  );
+
+  d.settlements.slice(0, 120).forEach((s) => {
+    const c = mmiColor(s.mmi);
+    layers.push(
+      L.circleMarker([s.lat, s.lon], {
+        radius: Math.max(3, Math.log10(Math.max(s.population, 10)) * 1.8),
+        color: c, fillColor: c, fillOpacity: 0.85, weight: 0.6,
+      }).bindPopup(`<b>${s.name}</b><br>MMI ${s.mmi.toFixed(1)} ± ${s.sigma.toFixed(2)} (${s.roman})<br>${s.population.toLocaleString("tr-TR")} kişi · ${s.distance_km} km`)
+    );
+  });
+
+  impactLayer = L.layerGroup(layers).addTo(impactMap);
+  // Not: haritaya eklenmemiş bir L.circle'da getBounds() çalışmaz (map gerekir);
+  // latLng.toBounds() saf geometridir ve haritadan bağımsız hesaplanır.
+  const big = d.bands.find((b) => b.radius_km);
+  if (big) {
+    impactMap.fitBounds(L.latLng(d.event.lat, d.event.lon).toBounds(big.radius_km * 2000));
+  }
+}
+
+function drawSettlementTable(d) {
+  const el = document.getElementById("i-settlements");
+  if (!d.settlements.length) {
+    el.innerHTML = `<p class="muted">Etkilenen yerleşim yok.</p>`;
+    return;
+  }
+  el.innerHTML = `<table class="forecast-table">
+    <tr><th>Yerleşim</th><th>MMI</th><th>Derece</th><th>Uzaklık</th><th>Yaklaşık nüfus</th></tr>
+    ${d.settlements.slice(0, 100).map((s) => `<tr>
+      <td class="loc-cell" style="color:var(--text)"><b>${s.name}</b></td>
+      <td style="color:${mmiColor(s.mmi)};font-weight:700">${s.mmi.toFixed(1)} <span class="muted">±${s.sigma.toFixed(2)}</span></td>
+      <td>${s.roman}</td>
+      <td>${s.distance_km} km</td>
+      <td>${s.population.toLocaleString("tr-TR")}</td>
+    </tr>`).join("")}
+  </table>`;
+}
+
+async function toggleShelters(e) {
+  if (!e.target.checked) {
+    if (shelterLayer) {
+      impactMap.removeLayer(shelterLayer);
+      shelterLayer = null;
+    }
+    return;
+  }
+  if (!lastImpact) return;
+  const p = new URLSearchParams({
+    lat: lastImpact.event.lat,
+    lon: lastImpact.event.lon,
+    radius_km: 120,
+  });
+  const r = await fetch(`/api/shelters?${p}`);
+  if (!r.ok) return;
+  const fc = await r.json();
+  shelterLayer = L.geoJSON(fc, {
+    pointToLayer: (f, latlng) =>
+      L.circleMarker(latlng, {
+        radius: 4, color: "#2ecc71", fillColor: "#2ecc71", fillOpacity: 0.9, weight: 1,
+      }).bindPopup(`<b>Toplanma alanı</b><br>${f.properties.name || "(isimsiz)"}<br>${f.properties.distance_km} km<br><small>OSM — liste eksiktir</small>`),
+  }).addTo(impactMap);
+  document.getElementById("i-shelter-note").textContent = fc.features.length
+    ? `${fc.features.length} toplanma alanı (OSM, eksik veri)`
+    : "Bu bölgede OSM'de kayıtlı toplanma alanı yok — resmî liste için AFAD.";
+}
+
 /* ── başlat ── */
+
 toggleLiveFaults();
 refreshLive();

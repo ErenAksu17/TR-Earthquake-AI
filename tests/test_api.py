@@ -203,3 +203,36 @@ class TestCompareEndpoint:
         main._compare_cache.clear()
         assert client.get("/api/compare?start=2024-01-01&end=2024-01-02").status_code == 502
         main._compare_cache.clear()
+
+
+class TestImpactEndpoints:
+
+    def test_impact_scenario(self, client):
+        r = client.get("/api/impact", params={"mag": 7.5, "lat": 40.75, "lon": 29.9, "depth": 10})
+        assert r.status_code == 200
+        b = r.json()
+        assert b["max_mmi"] > 6.0
+        assert b["total_settlements"] > 0
+        assert len(b["caveats"]) >= 4
+
+    def test_impact_bands_nested(self, client):
+        b = client.get("/api/impact", params={"mag": 7.0, "lat": 39.0, "lon": 35.0}).json()
+        counts = [x["settlements"] for x in b["bands"]]
+        assert counts == sorted(counts)
+
+    def test_impact_rejects_out_of_range_magnitude(self, client):
+        assert client.get("/api/impact", params={"mag": 12, "lat": 39, "lon": 35}).status_code == 422
+
+    def test_impact_requires_coordinates(self, client):
+        assert client.get("/api/impact", params={"mag": 6.0}).status_code == 422
+
+    def test_shelters_within_radius(self, client):
+        r = client.get("/api/shelters", params={"lat": 41.0, "lon": 28.98, "radius_km": 20})
+        assert r.status_code == 200
+        fc = r.json()
+        assert fc["type"] == "FeatureCollection"
+        assert "EKSİK" in fc["properties"]["note"].upper()
+
+    def test_shelters_rejects_bad_radius(self, client):
+        assert client.get("/api/shelters",
+                          params={"lat": 41.0, "lon": 28.98, "radius_km": 0}).status_code == 422

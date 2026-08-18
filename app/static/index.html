@@ -23,6 +23,7 @@
     <button class="tab" data-view="archive">🗺️ Arşiv &amp; Analiz</button>
     <button class="tab" data-view="seismo">🔬 Sismoloji</button>
     <button class="tab" data-view="compare">⚖️ Kaynak Karşılaştırma</button>
+    <button class="tab" data-view="impact">💥 Etki Analizi</button>
   </nav>
   <div class="status">
     <span id="status-dot" class="dot"></span>
@@ -178,6 +179,53 @@
     <div class="card-title">Eşleşen Olaylar <span class="muted">(en büyükten)</span></div>
     <div id="c-pairs" class="table-scroll"></div>
   </div>
+</main>
+
+<!-- ── ETKİ ANALİZİ ──────────────────────────────────────── -->
+<main id="view-impact" class="view hidden">
+
+  <div class="card info">
+    <b>Bir deprem nerede ne kadar hissedilir?</b> Sarsıntı şiddeti,
+    <i>Allen, Wald &amp; Worden (2012)</i> makrosismik şiddet denklemiyle (IPE)
+    her il/ilçe merkezi için hesaplanır ve MMI derecesine çevrilir.
+    Geçmiş bir depremi seçebilir veya kendi senaryonuzu kurabilirsiniz.
+    <br><br>
+    <b>Bu bir hasar tahmini değildir.</b> Model nokta kaynak varsayar (büyük
+    depremlerde fay onlarca km uzanır → yakın alanı olduğundan az tahmin eder),
+    zemin büyütmesini hesaba katmaz ve 300 km'ye kadar geçerlidir. Nüfus
+    rakamları kaba mertebedir. Toplanma alanları OSM topluluk verisidir ve
+    <b>eksiktir</b> — AFAD'ın resmî listesi değildir.
+  </div>
+
+  <div class="toolbar">
+    <label>Geçmiş deprem
+      <select id="i-event"><option value="">— senaryo gir —</option></select>
+    </label>
+    <label>Büyüklük <input type="number" id="i-mag" value="7.5" min="3" max="9" step="0.1" class="narrow"></label>
+    <label>Enlem <input type="number" id="i-lat" value="40.75" step="0.01" class="narrow"></label>
+    <label>Boylam <input type="number" id="i-lon" value="29.90" step="0.01" class="narrow"></label>
+    <label>Derinlik (km) <input type="number" id="i-depth" value="10" min="0" max="700" class="narrow"></label>
+    <button id="i-apply" class="btn primary">Hesapla</button>
+    <label class="check"><input type="checkbox" id="i-shelters"> Toplanma alanları</label>
+    <span class="muted" id="i-shelter-note"></span>
+  </div>
+
+  <div class="kpis" id="i-kpis"></div>
+
+  <div class="split">
+    <div id="map-impact" class="map"></div>
+    <div class="feed">
+      <h2>Şiddet Bantları</h2>
+      <div id="i-bands"></div>
+    </div>
+  </div>
+
+  <div class="card forecast-card">
+    <div class="card-title">En Çok Etkilenen Yerleşimler <span class="muted">(şiddet sırasına göre)</span></div>
+    <div id="i-settlements" class="table-scroll"></div>
+  </div>
+
+  <div class="card info" id="i-caveats"></div>
 </main>
 
 <footer>
