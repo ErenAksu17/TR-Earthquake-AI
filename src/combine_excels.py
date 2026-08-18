@@ -1,32 +1,42 @@
-import pandas as pd
+"""Ham Earthquake_*.xlsx dosyalarını tek katalogda birleştirir.
+
+Not: Earthquake_4/5/6/7 dosyaları büyüklük eşiğine göre alınmış, ÖRTÜŞEN
+dışa aktarımlardır (bir M7 depremi dördünde birden yer alır). Tekilleştirme
+pipeline.build_merged içinde yapılır.
+"""
+
+import logging
 import os
 
-def combine_excels(folder="data", output="data/merged_quakes.xlsx"):
-    combined_df = pd.DataFrame()
+import pandas as pd
 
-    for file in os.listdir(folder):
+from src.config import DATA_DIR, PATHS
+from src.pipeline import build_merged
+from src.preprocess import COLUMN_MAP
+
+log = logging.getLogger(__name__)
+
+
+def combine_excels(folder: str = None, output: str = None) -> pd.DataFrame:
+    folder = folder or DATA_DIR
+    output = output or PATHS["merged"]
+
+    frames = []
+    for file in sorted(os.listdir(folder)):
         if file.endswith(".xlsx") and "Earthquake_" in file:
-            path = os.path.join(folder, file)
-            print(f"🔄 Yükleniyor: {file}")
-            df = pd.read_excel(path)
+            log.info("Yükleniyor: %s", file)
+            df = pd.read_excel(os.path.join(folder, file))
+            frames.append(df.rename(columns=COLUMN_MAP))
 
-            df = df.rename(columns={
-                "Date": "eventDate",
-                "Latitude": "latitude",
-                "Longitude": "longitude",
-                "Depth": "depth",
-                "Magnitude": "magnitude",
-                "Location": "location"
-            })
+    if not frames:
+        log.warning("Birleştirilecek dosya bulunamadı: %s", folder)
+        return pd.DataFrame()
 
-            df = df[["eventDate", "latitude", "longitude", "depth", "magnitude", "location"]]
-            combined_df = pd.concat([combined_df, df], ignore_index=True)
+    merged = build_merged(frames, output=output)
+    log.info("Tüm veriler birleştirildi: %s (%d kayıt)", output, len(merged))
+    return merged
 
-    combined_df["eventDate"] = pd.to_datetime(combined_df["eventDate"], errors="coerce")
-    combined_df = combined_df.dropna(subset=["eventDate", "latitude", "longitude", "magnitude"])
-
-    combined_df.to_excel(output, index=False)
-    print(f"\n✅ Tüm veriler birleştirildi: {output}")
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     combine_excels()

@@ -32,11 +32,16 @@ def calculate_fault_risk(
     quakes_path = quakes_path or PATHS["merged"]
     faults_path = faults_path or PATHS["faults"]
     output_path = output_path or PATHS["fault_risk"]
-    buffer_deg  = buffer_deg  or FAULT["buffer_deg"]
+    buffer_km   = buffer_deg  or FAULT["buffer_km"]   # geriye uyumlu parametre adı
 
     # Deprem verisi
     try:
-        df = pd.read_excel(quakes_path) if quakes_path.endswith(".xlsx") else pd.read_csv(quakes_path)
+        if quakes_path.endswith(".parquet"):
+            df = pd.read_parquet(quakes_path)
+        elif quakes_path.endswith(".xlsx"):
+            df = pd.read_excel(quakes_path)
+        else:
+            df = pd.read_csv(quakes_path)
     except FileNotFoundError:
         log.error("Deprem verisi bulunamadı: %s", quakes_path)
         return pd.DataFrame()
@@ -53,11 +58,16 @@ def calculate_fault_risk(
         log.error("Fay verisi bulunamadı: %s", faults_path)
         return pd.DataFrame()
 
-    faylar_buf = faylar.copy()
-    faylar_buf["geometry"] = faylar_buf["geometry"].buffer(buffer_deg)
+    # Mesafe hesabı metrik CRS'te yapılır (derece bazlı buffer coğrafi olarak
+    # yanlıştır: 0.1° doğu-batı ~8,6 km, kuzey-güney ~11,1 km eder).
+    metric = FAULT["metric_crs"]
+    quakes_m = quakes_gdf.to_crs(metric)
+    faylar_m = faylar[["catalog_name", "geometry"]].to_crs(metric)
 
-    # Uzamsal eşleşme
-    matched = gpd.sjoin(quakes_gdf, faylar_buf[["catalog_name", "geometry"]], how="inner", predicate="intersects")
+    # Her deprem yalnızca EN YAKIN faya atanır (çift sayım önlenir)
+    matched = gpd.sjoin_nearest(
+        quakes_m, faylar_m, how="inner", max_distance=buffer_km * 1000.0,
+    )
 
     if matched.empty:
         log.warning("Hiçbir deprem fay hattı yakınında bulunamadı.")
