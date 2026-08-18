@@ -10,9 +10,10 @@ hipomerkez uzaklığı (Rhyp) varyantı:
     σ    = s1 + s2 / (1 + (Rhyp/s3)²)
 
 Bilinçli sınırlar — bunlar gizlenmemeli:
-- NOKTA KAYNAK varsayımı. Büyük depremlerde fay onlarca km uzanır; gerçek
-  sarsıntı fay boyunca daha geniş alana yayılır. Bu model yakın alanda
-  (özellikle M≥7'de) şiddeti OLDUĞUNDAN AZ tahmin eder.
+- NOKTA KAYNAK varsayımı. Büyük depremlerde fay onlarca km uzanır; bu model
+  tek noktadan yayılım varsayar. DYFI gözlemlerine karşı ÖLÇÜLEN sapma
+  (bkz. src/validation.py): genel sapma -0,01 MMI (yansız), MAE 0,83;
+  ancak M≥6,5 olaylarda ortalama 0,45 derece FAZLA tahmin.
 - ZEMİN ETKİSİ YOK. Alüvyon zeminlerde sarsıntı 1-2 MMI derece artabilir;
   bu model kaya/ortalama zemin için medyan değer verir.
 - Bu bir HASAR tahmini değildir. Hasar; yapı stoku, yönetmelik ve zemine
@@ -168,8 +169,11 @@ def assess(magnitude: float, lat: float, lon: float, depth_km: float = 10.0,
             "roman": mmi_band(r["mmi"])[0],
         } for _, r in top.iterrows()],
         "caveats": [
-            "Nokta kaynak varsayımı — büyük depremlerde fay boyunca sarsıntı "
-            "olduğundan geniş alana yayılır, yakın alan olduğundan az tahmin edilir.",
+            "Nokta kaynak varsayımı — büyük depremlerde fay onlarca km uzanır, "
+            "bu model ise tek noktadan yayılım varsayar.",
+            "ÖLÇÜLDÜ (Doğrulama sekmesi, 1.387 DYFI gözlemi): model genelde "
+            "yansızdır (sapma -0,01 MMI, MAE 0,83) ancak M≥6,5 olaylarda şiddeti "
+            "ortalama 0,45 derece FAZLA tahmin eder; küçük olaylarda ~0,2 derece az.",
             "Zemin büyütmesi modellenmez; alüvyon zeminlerde şiddet 1-2 derece artabilir.",
             "Bu bir hasar veya can kaybı tahmini DEĞİLDİR.",
             f"Denklem {IPE['max_distance_km']:.0f} km'ye kadar geçerlidir; "

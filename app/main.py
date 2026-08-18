@@ -8,6 +8,8 @@ Uçlar:
   GET /api/compare?...              Çoklu katalog karşılaştırması (AFAD vs USGS)
   GET /api/impact?...               Sarsıntı şiddeti ve yerleşim maruziyeti (IPE)
   GET /api/shelters?...             Toplanma alanları (OSM, eksik topluluk verisi)
+  GET /api/validation/intensity     Şiddet modeli vs DYFI gözlemleri
+  GET /api/validation/aftershock    Artçı tahmininin sözde-ileriye dönük N-testi
   GET /api/faults                   Sadeleştirilmiş diri fay GeoJSON'u
   GET /api/status                   Kaynak API erişilebilirlik durumu
   GET /                             Leaflet tabanlı arayüz (app/static)
@@ -33,6 +35,7 @@ from src.catalog_compare import compare_window, sample_pairs  # noqa: E402
 from src.config import COMPARE, PATHS  # noqa: E402
 from src.fetch_kandilli import api_status, get_live  # noqa: E402
 from src.impact import assess, nearby_shelters  # noqa: E402
+from src.validation import validate_aftershock_forecasts, validate_intensity  # noqa: E402
 from src.pipeline import load_merged  # noqa: E402
 from src.seismology import (  # noqa: E402
     aftershock_forecast,
@@ -353,6 +356,37 @@ def api_shelters(
 ):
     """Çevredeki toplanma alanları — OSM topluluk verisi, EKSİKTİR."""
     return nearby_shelters(lat, lon, radius_km)
+
+
+# ── Model doğrulama ──────────────────────────────────────────────────────────
+
+_validation_cache: dict[str, object] = {}
+
+
+@app.get("/api/validation/intensity")
+def api_validate_intensity(min_responses: int = Query(3, ge=1, le=50)):
+    """Şiddet modelinin gözlenen DYFI şiddetlerine karşı başarımı."""
+    key = f"int-{min_responses}"
+    if key not in _validation_cache:
+        try:
+            _validation_cache[key] = validate_intensity(min_responses)
+        except FileNotFoundError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+    return _validation_cache[key]
+
+
+@app.get("/api/validation/aftershock")
+def api_validate_aftershock(
+    min_mag: float = Query(6.0, ge=5.0, le=8.0),
+    learn_days: float = Query(7.0, gt=0, le=90),
+    forecast_days: float = Query(30.0, gt=0, le=365),
+):
+    """Artçı şok tahmininin geçmiş diziler üzerinde sözde-ileriye dönük testi."""
+    key = f"aft-{min_mag}-{learn_days}-{forecast_days}"
+    if key not in _validation_cache:
+        _validation_cache[key] = validate_aftershock_forecasts(
+            catalog(), min_mag=min_mag, learn_days=learn_days, forecast_days=forecast_days)
+    return _validation_cache[key]
 
 
 @app.get("/api/faults")

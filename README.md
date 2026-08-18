@@ -87,6 +87,23 @@
 > mertebe fikri verir. Toplanma alanları OSM topluluk verisidir (~710 nokta) ve
 > **eksiktir** — AFAD'ın resmî listesi değildir.
 
+### ✅ Doğrulama *(Yeni)*
+Bu proje kendi tahminlerini test eder ve sonucu — modelin lehine olmasa bile — yayımlar.
+
+- **Şiddet modeli vs gerçek gözlemler:** USGS DYFI ("Depremi hissettiniz mi?")
+  anketlerinden gelen **1.387 gözlem / 129 olay** ile kıyaslama
+  → ortalama sapma **−0,01 MMI** (yansız), MAE **0,83**, gözlemlerin **%67**'si
+  ±1 MMI içinde. Bu, denklemin kendi yayımlanmış belirsizliğiyle (σ≈0,8–1,2) uyumlu.
+- **Artçı şok tahmini — sözde-ileriye dönük N-testi:** model dizinin yalnızca
+  ilk 7 gününe bakarak kurulur, sonraki 30 gün tahmin edilip gerçekleşenle
+  kıyaslanır (geleceğe bakılmaz). Test edilebilen 5 dizinin **4'ü CSEP N-testini
+  geçti**; toplam beklenen 105, gözlenen 121 (oran 1,16).
+
+> **Doğrulamanın düzelttiği bir iddia:** Faz 4'te "nokta kaynak varsayımı yakın
+> alanda şiddeti *az* tahmin eder" yazmıştık. Ölçüm bunu desteklemedi — model
+> yakın alanda ve M≥6,5 olaylarda şiddeti ortalama **0,45 derece FAZLA** tahmin
+> ediyor. İddia, ölçülen değerle değiştirildi.
+
 ### 🧭 Veri Kalitesi
 - **16.150+ kayıt** (M ≥ 4, 1900–2025), EventID bazlı tekilleştirme
 - Ham veri iki sistematik bozulma içerir, ikisi de pipeline'da düzeltilir:
@@ -152,6 +169,8 @@ Tarayıcıda aç → `http://localhost:8021`
 | `GET /api/compare?start=&end=&min_mag=` | AFAD ↔ USGS katalog karşılaştırması (30 dk önbellek) |
 | `GET /api/impact?mag=&lat=&lon=&depth=` | Sarsıntı şiddeti (MMI) ve yerleşim maruziyeti |
 | `GET /api/shelters?lat=&lon=&radius_km=` | Toplanma alanları (OSM, eksik) |
+| `GET /api/validation/intensity` | Şiddet modeli vs DYFI gözlemleri |
+| `GET /api/validation/aftershock` | Artçı tahmininin N-testi sonuçları |
 
 Tüm zamanlar **UTC (ISO 8601, `Z` sonekli)** döner; yerel saate çeviri istemcinin işidir.
 
@@ -167,6 +186,7 @@ Tüm zamanlar **UTC (ISO 8601, `Z` sonekli)** döner; yerel saate çeviri istemc
 | **Diri Fay Veritabanı** | Türkiye aktif fay hatları | Statik |
 | **GeoNames** (CC BY 4.0) | 894 il/ilçe merkezi + nüfus | Statik |
 | **OpenStreetMap** (ODbL) | Toplanma alanları (~710, eksik) | Statik |
+| **USGS DYFI** | 5.779 gözlenen şiddet raporu (doğrulama) | Statik |
 
 > Canlı veri birincil olarak [orhanayd/kandilli-rasathanesi-api](https://github.com/orhanayd/kandilli-rasathanesi-api)
 > üzerinden çekilir; erişilemezse AFAD resmî `apiv2` API'sine otomatik düşülür.
@@ -197,7 +217,9 @@ TR-Earthquake-AI/
 │   ├── seismology.py         ← b-değeri, Mc, Gardner-Knopoff, Omori-Utsu
 │   ├── catalog_compare.py    ← AFAD ↔ USGS katalog eşleştirme ve fark analizi
 │   ├── impact.py             ← Şiddet denklemi (IPE) + yerleşim maruziyeti (YENİ)
-│   ├── prepare_exposure.py   ← Yerleşim ve toplanma alanı verisi hazırlar (YENİ)
+│   ├── prepare_exposure.py   ← Yerleşim ve toplanma alanı verisi hazırlar
+│   ├── validation.py         ← Model doğrulama: DYFI kıyası + N-testi (YENİ)
+│   ├── prepare_validation.py ← USGS DYFI gözlemlerini indirir (YENİ)
 │   └── fay_risk_analiz.py    ← Fay bazlı aktivite skoru (metrik CRS, en-yakın-fay ataması)
 │
 ├── data/
@@ -205,7 +227,7 @@ TR-Earthquake-AI/
 │   ├── diri_faylar_simplified.geojson ← Web için sadeleştirilmiş faylar (~0,2 MB)
 │   └── diri_faylar.geojson   ← Orijinal fay veritabanı (~12 MB)
 │
-├── tests/                    ← pytest (pipeline + API + sismoloji + karşılaştırma + etki, 111 test)
+├── tests/                    ← pytest (pipeline + API + sismoloji + karşılaştırma + etki + doğrulama, 135 test)
 ├── .github/workflows/ci.yml  ← GitHub Actions (her push'ta testler)
 ├── requirements.txt
 └── README.md

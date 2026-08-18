@@ -17,6 +17,7 @@ PATHS = {
     "usgs_csv":       os.path.join(DATA_DIR, "usgs_1900_1990.csv"),
     "settlements":    os.path.join(DATA_DIR, "yerlesimler.parquet"),
     "shelters":       os.path.join(DATA_DIR, "toplanma_alanlari.geojson"),
+    "dyfi":           os.path.join(DATA_DIR, "dyfi_gozlemler.parquet"),
 }
 
 # Harita varsayılanları
@@ -94,4 +95,14 @@ EXPOSURE = {
     "province_error_low": -0.31,
     "province_error_high": 0.32,
     "coverage_note": "Yalnızca il/ilçe merkezleri; kırsal yerleşimler dahil değil.",
+}
+
+# Model doğrulama
+VALIDATION = {
+    "min_responses": 3,        # DYFI kutusu için asgari anket sayısı (gürültü filtresi)
+    "near_field_km": 50.0,     # "yakın alan" sınırı (nokta-kaynak sapması burada beklenir
+    "learn_days": 7.0,         # artçı testinde öğrenme penceresi
+    "forecast_days": 30.0,     # artçı testinde tahmin penceresi
+    "n_test_alpha": 0.025,     # CSEP N-testi tek kuyruk eşiği (çift taraflı %5)
+    "target_offset": 0.0,      # test hedefi = Mc (tamlık eşiği — en yüksek istatistik güç)
 }

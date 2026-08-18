@@ -32,13 +32,14 @@ document.querySelectorAll(".tab").forEach((btn) =>
     document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     const view = btn.dataset.view;
-    ["live", "archive", "seismo", "compare", "impact"].forEach((v) =>
+    ["live", "archive", "seismo", "compare", "impact", "validation"].forEach((v) =>
       document.getElementById(`view-${v}`).classList.toggle("hidden", v !== view)
     );
     if (view === "archive") initArchive();
     if (view === "seismo") initSeismo();
     if (view === "compare") initCompare();
     if (view === "impact") initImpact();
+    if (view === "validation") initValidation();
     setTimeout(() => {
       liveMap.invalidateSize();
       archMap && archMap.invalidateSize();
@@ -782,7 +783,149 @@ async function toggleShelters(e) {
     : "Bu bölgede OSM'de kayıtlı toplanma alanı yok — resmî liste için AFAD.";
 }
 
+/* ══════════ DOĞRULAMA ══════════ */
+let validationInited = false;
+
+async function initValidation() {
+  if (validationInited) return;
+  validationInited = true;
+  await Promise.all([loadIntensityValidation(), loadAftershockValidation()]);
+}
+
+async function loadIntensityValidation() {
+  const r = await fetch("/api/validation/intensity");
+  if (!r.ok) {
+    document.getElementById("v-int-kpis").innerHTML = kpi("Şiddet doğrulaması", "veri yok");
+    return;
+  }
+  const d = await r.json();
+  const o = d.overall;
+  const sign = (x) => (x > 0 ? "+" : "");
+
+  document.getElementById("v-int-kpis").innerHTML =
+    kpi("Gözlem", o.observations.toLocaleString("tr-TR")) +
+    kpi("Olay", o.events.toLocaleString("tr-TR")) +
+    kpi("Ortalama sapma", `${sign(o.bias)}${o.bias.toFixed(2)} MMI`) +
+    kpi("Ortalama mutlak hata", `${o.mae.toFixed(2)} MMI`) +
+    kpi("±1 MMI içinde", `%${(o.within_1_mmi * 100).toFixed(0)}`);
+
+  const gridColor = "rgba(127,140,163,0.15)";
+  const mk = (id, cfg) => {
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart(document.getElementById(id), cfg);
+  };
+
+  // Gözlenen vs tahmin saçılımı + birebir doğru
+  mk("chart-vscatter", {
+    type: "scatter",
+    data: {
+      datasets: [
+        {
+          label: "DYFI kutuları",
+          data: d.scatter.map((s) => ({ x: s.predicted, y: s.observed })),
+          backgroundColor: "rgba(52,152,219,0.45)",
+          pointRadius: 2.5,
+        },
+        {
+          label: "birebir (mükemmel tahmin)",
+          data: [{ x: 2, y: 2 }, { x: 10, y: 10 }],
+          type: "line",
+          borderColor: "#e74c3c",
+          borderDash: [6, 4],
+          pointRadius: 0,
+          borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: "#e6ecf5", boxWidth: 12 } },
+        title: { display: true, text: "Gözlenen vs Tahmin Edilen Şiddet", color: "#e6ecf5" },
+      },
+      scales: {
+        x: { title: { display: true, text: "Tahmin (MMI)", color: "#7f8ca3" }, ticks: { color: "#7f8ca3" }, grid: { color: gridColor }, min: 2, max: 10 },
+        y: { title: { display: true, text: "Gözlenen (MMI)", color: "#7f8ca3" }, ticks: { color: "#7f8ca3" }, grid: { color: gridColor }, min: 2, max: 10 },
+      },
+    },
+  });
+
+  // Mesafeye göre sapma
+  mk("chart-vresid", {
+    type: "bar",
+    data: {
+      labels: d.by_distance.map((b) => `${b.range} km`),
+      datasets: [{
+        label: "Ortalama sapma (MMI)",
+        data: d.by_distance.map((b) => b.bias),
+        backgroundColor: d.by_distance.map((b) => (b.bias > 0 ? "#3498db99" : "#e74c3c99")),
+      }],
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: "Sapma — Uzaklığa Göre (0 = mükemmel)", color: "#e6ecf5" },
+      },
+      scales: {
+        x: { ticks: { color: "#7f8ca3" }, grid: { color: gridColor } },
+        y: { ticks: { color: "#7f8ca3" }, grid: { color: gridColor } },
+      },
+    },
+  });
+
+  const rows = (arr) => arr.map((b) => `<tr>
+      <td>${b.group}</td><td><b>${b.range}</b></td><td>${b.n}</td>
+      <td class="${Math.abs(b.bias) >= 0.3 ? "prob-mid" : "prob-low"}">${sign(b.bias)}${b.bias.toFixed(2)}</td>
+      <td>${b.mae.toFixed(2)}</td><td>${b.rmse.toFixed(2)}</td>
+    </tr>`).join("");
+
+  document.getElementById("v-int-bins").innerHTML = `<table class="forecast-table">
+    <tr><th>Grup</th><th>Aralık</th><th>Gözlem</th><th>Sapma</th><th>MAE</th><th>RMSE</th></tr>
+    ${rows(d.by_distance)}${rows(d.by_magnitude)}
+  </table>
+  <p class="muted" style="margin-top:8px">Negatif sapma modelin şiddeti FAZLA tahmin ettiğini gösterir.
+  Ölçüm, büyük depremlerde (M≥6,5) modelin fazla tahmin ettiğini ortaya koyuyor.</p>`;
+
+  document.getElementById("v-caveats").innerHTML =
+    "<b>Doğrulamanın kendi sınırları:</b><ul>" +
+    d.caveats.map((c) => `<li>${c}</li>`).join("") + "</ul>";
+}
+
+async function loadAftershockValidation() {
+  const r = await fetch("/api/validation/aftershock");
+  if (!r.ok) return;
+  const d = await r.json();
+
+  document.getElementById("v-aft-kpis").innerHTML =
+    kpi("Test edilen dizi", `${d.tested} / ${d.candidates}`) +
+    kpi("N-testini geçen", d.tested ? `${d.passed} (%${(d.pass_rate * 100).toFixed(0)})` : "—") +
+    kpi("Toplam beklenen", d.total_expected != null ? d.total_expected.toFixed(0) : "—") +
+    kpi("Toplam gözlenen", d.total_observed != null ? d.total_observed : "—") +
+    kpi("Gözlenen / beklenen", d.ratio_observed_expected != null ? d.ratio_observed_expected.toFixed(2) : "—");
+
+  const el = document.getElementById("v-aft-table");
+  if (!d.sequences.length) {
+    el.innerHTML = `<p class="muted">Yeterli veriye sahip dizi bulunamadı.</p>`;
+    return;
+  }
+  el.innerHTML = `<table class="forecast-table">
+    <tr><th>Ana şok</th><th>M</th><th>Mc</th><th>b</th><th>p</th><th>Beklenen</th><th>Gözlenen</th><th>Sonuç</th></tr>
+    ${d.sequences.map((s) => `<tr>
+      <td>${s.time.slice(0, 10)}<br><span class="muted">${(s.location || "").slice(0, 26)}</span></td>
+      <td><b>${s.magnitude.toFixed(1)}</b></td>
+      <td>${s.mc.toFixed(1)}</td><td>${s.b.toFixed(2)}</td><td>${s.p.toFixed(2)}</td>
+      <td>${s.expected.toFixed(1)}</td><td><b>${s.observed}</b></td>
+      <td class="${s.passed ? "pass-ok" : "prob-high"}">${s.passed ? "✓ geçti" : "✗ kaldı"}</td>
+    </tr>`).join("")}
+  </table>
+  <p class="muted" style="margin-top:8px">${d.skipped_insufficient_data} dizi, öğrenme penceresinde
+  yeterli artçı içermediği için test edilemedi (katalog M≥4 eşiğinde).
+  Hedef büyüklük her dizinin kendi tamlık eşiği (Mc) alınır.</p>`;
+}
+
 /* ── başlat ── */
+
 
 toggleLiveFaults();
 refreshLive();

@@ -24,6 +24,7 @@
     <button class="tab" data-view="seismo">🔬 Sismoloji</button>
     <button class="tab" data-view="compare">⚖️ Kaynak Karşılaştırma</button>
     <button class="tab" data-view="impact">💥 Etki Analizi</button>
+    <button class="tab" data-view="validation">✅ Doğrulama</button>
   </nav>
   <div class="status">
     <span id="status-dot" class="dot"></span>
@@ -226,6 +227,38 @@
   </div>
 
   <div class="card info" id="i-caveats"></div>
+</main>
+
+<!-- ── DOĞRULAMA ─────────────────────────────────────────── -->
+<main id="view-validation" class="view hidden">
+
+  <div class="card info">
+    <b>Bu araç kendi tahminlerini test ediyor.</b> Bir modelin değeri, iddiasında
+    değil gerçekle kıyaslandığında ne kadar tuttuğundadır. Burada iki bağımsız test var:
+    şiddet modeli <b>USGS DYFI</b> gözlemlerine karşı, artçı şok tahmini ise
+    <b>sözde-ileriye dönük N-testi</b> ile (model yalnızca ilk günlerin verisiyle
+    kurulur, sonrası tahmin edilip gerçekleşenle kıyaslanır — geleceğe bakılmaz).
+  </div>
+
+  <h2 class="section-title">📊 Şiddet Modeli — Gözlenen vs Tahmin</h2>
+  <div class="kpis" id="v-int-kpis"></div>
+  <div class="charts">
+    <div class="card"><canvas id="chart-vscatter"></canvas></div>
+    <div class="card"><canvas id="chart-vresid"></canvas></div>
+  </div>
+  <div class="card forecast-card">
+    <div class="card-title">Sapmanın Dağılımı <span class="muted">(pozitif = model az tahmin ediyor)</span></div>
+    <div id="v-int-bins"></div>
+  </div>
+
+  <h2 class="section-title">🌊 Artçı Şok Tahmini — N-Testi</h2>
+  <div class="kpis" id="v-aft-kpis"></div>
+  <div class="card forecast-card">
+    <div class="card-title">Test Edilen Diziler</div>
+    <div id="v-aft-table"></div>
+  </div>
+
+  <div class="card info" id="v-caveats"></div>
 </main>
 
 <footer>

@@ -214,3 +214,7 @@ footer {
 .band-label { font-size: 13px; font-weight: 600; }
 .card.info ul { margin: 6px 0 0 18px; }
 .card.info li { margin-bottom: 4px; }
+
+/* Doğrulama */
+.section-title { font-size: 15px; font-weight: 700; margin: 6px 0 -4px 2px; }
+.pass-ok { color: #2ecc71; font-weight: 700; }

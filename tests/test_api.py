@@ -236,3 +236,34 @@ class TestImpactEndpoints:
     def test_shelters_rejects_bad_radius(self, client):
         assert client.get("/api/shelters",
                           params={"lat": 41.0, "lon": 28.98, "radius_km": 0}).status_code == 422
+
+
+class TestValidationEndpoints:
+
+    def test_intensity_validation(self, client):
+        r = client.get("/api/validation/intensity")
+        assert r.status_code == 200
+        b = r.json()
+        assert b["overall"]["observations"] > 100
+        assert abs(b["overall"]["bias"]) < 0.5
+        assert len(b["caveats"]) >= 3
+
+    def test_intensity_validation_filter(self, client):
+        loose = client.get("/api/validation/intensity?min_responses=1").json()
+        strict = client.get("/api/validation/intensity?min_responses=10").json()
+        assert strict["overall"]["observations"] < loose["overall"]["observations"]
+
+    def test_intensity_rejects_bad_filter(self, client):
+        assert client.get("/api/validation/intensity?min_responses=0").status_code == 422
+
+    def test_aftershock_validation(self, client):
+        r = client.get("/api/validation/aftershock")
+        assert r.status_code == 200
+        b = r.json()
+        assert b["tested"] + b["skipped_insufficient_data"] == b["candidates"]
+        for s in b["sequences"]:
+            assert s["expected"] >= 0
+            assert isinstance(s["observed"], int)
+
+    def test_aftershock_rejects_bad_window(self, client):
+        assert client.get("/api/validation/aftershock?learn_days=0").status_code == 422
