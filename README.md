@@ -6,7 +6,9 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.141+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Leaflet](https://img.shields.io/badge/Leaflet-1.9-199900?style=for-the-badge&logo=leaflet&logoColor=white)](https://leafletjs.com)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-000?style=for-the-badge&logo=shadcnui&logoColor=white)](https://ui.shadcn.com)
 [![License](https://img.shields.io/badge/Lisans-MIT-22c55e?style=for-the-badge)](LICENSE)
 
 *Kandilli Rasathanesi, AFAD ve USGS verilerini birleştiren; gerçek zamanlı deprem takibi, interaktif harita ve istatistiksel analizler sunan açık kaynaklı bir platform.*
@@ -150,6 +152,16 @@ uvicorn app.main:app --port 8021
 
 Tarayıcıda aç → `http://localhost:8021`
 
+Derlenmiş arayüz `app/static/` içinde depoyla birlikte gelir; **çalıştırmak için
+Node gerekmez.** Arayüzü değiştirmek isterseniz:
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+`npm run dev` Vite geliştirme sunucusunu açar ve `/api` isteklerini 8021'e yönlendirir.
+`npm run build` çıktıyı doğrudan `app/static/` içine üretir.
+
 ---
 
 ## 🔌 API Uçları
@@ -200,10 +212,15 @@ TR-Earthquake-AI/
 │
 ├── app/
 │   ├── main.py               ← FastAPI backend (API + statik sunum)
-│   └── static/
-│       ├── index.html        ← Leaflet tabanlı arayüz
-│       ├── app.js
-│       └── style.css
+│   └── static/               ← Derlenmiş arayüz (Vite çıktısı, depoda hazır)
+│
+├── frontend/                 ← Arayüz kaynağı (React 19 + Vite + Tailwind 4)
+│   └── src/
+│       ├── App.tsx           ← Sekmeli uygulama kabuğu
+│       ├── views/            ← 6 sekme (Canlı, Arşiv, Sismoloji, Karşılaştırma, Etki, Doğrulama)
+│       ├── components/ui/    ← shadcn/ui bileşenleri
+│       ├── lib/              ← API istemcisi ve biçimlendirme yardımcıları
+│       └── hooks/            ← Leaflet harita kancası
 │
 ├── src/
 │   ├── config.py             ← Merkezi konfigürasyon (yollar, sabitler, toleranslar)
@@ -236,6 +253,13 @@ TR-Earthquake-AI/
 ---
 
 ## 🔧 Teknik Detaylar
+
+### Arayüz
+- **React 19 + Vite** — sekmeler tembel yüklenir (bir sekme ancak açıldığında veri çeker)
+- **Tailwind CSS 4 + shadcn/ui** — erişilebilir bileşenler (Base UI üzerine)
+- Sismik renk paleti: düşük enerjiden yükseğe mavi → yeşil → sarı → turuncu → kırmızı;
+  aynı skala hem haritalarda hem grafiklerde kullanılır
+- Leaflet haritaları ve Chart.js grafikleri tema değişkenleriyle uyumlu
 
 ### Veri Pipeline
 ```

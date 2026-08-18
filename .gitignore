@@ -164,3 +164,7 @@ cython_debug/
 
 # Egitilmis model dosyalari
 data/*.pkl
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
