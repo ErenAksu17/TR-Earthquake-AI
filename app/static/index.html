@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TR Earthquake AI</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="logo">🌍</span>
+    <div>
+      <h1>TR Earthquake AI</h1>
+      <span class="subtitle">Türkiye Deprem Analiz Platformu</span>
+    </div>
+  </div>
+  <nav>
+    <button class="tab active" data-view="live">🔴 Canlı</button>
+    <button class="tab" data-view="archive">🗺️ Arşiv &amp; Analiz</button>
+  </nav>
+  <div class="status">
+    <span id="status-dot" class="dot"></span>
+    <span id="status-text">bağlanıyor…</span>
+  </div>
+</header>
+
+<!-- ── CANLI ─────────────────────────────────────────────── -->
+<main id="view-live" class="view">
+  <div class="toolbar">
+    <label>Kaynak
+      <select id="live-source">
+        <option value="all">Kandilli + AFAD</option>
+        <option value="kandilli">Kandilli</option>
+        <option value="afad">AFAD</option>
+      </select>
+    </label>
+    <label>Min. büyüklük
+      <select id="live-minmag">
+        <option value="0">Tümü</option>
+        <option value="2">M 2+</option>
+        <option value="3">M 3+</option>
+        <option value="4">M 4+</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" id="live-faults" checked> Diri faylar</label>
+    <button id="live-refresh" class="btn">🔄 Yenile</button>
+    <span id="live-countdown" class="muted"></span>
+  </div>
+
+  <div class="kpis" id="live-kpis"></div>
+
+  <div class="split">
+    <div id="map-live" class="map"></div>
+    <div class="feed">
+      <h2>Son Depremler <span class="muted" id="live-count"></span></h2>
+      <div id="live-list" class="quake-list"></div>
+    </div>
+  </div>
+</main>
+
+<!-- ── ARŞİV ─────────────────────────────────────────────── -->
+<main id="view-archive" class="view hidden">
+  <div class="toolbar">
+    <label>Başlangıç <input type="date" id="f-start" value="1900-01-01"></label>
+    <label>Bitiş <input type="date" id="f-end"></label>
+    <label>Büyüklük <input type="number" id="f-minmag" value="4.0" min="0" max="10" step="0.1" class="narrow"> – <input type="number" id="f-maxmag" value="10" min="0" max="10" step="0.1" class="narrow"></label>
+    <label>Derinlik (km) <input type="number" id="f-mindep" value="0" min="0" class="narrow"> – <input type="number" id="f-maxdep" value="700" min="0" class="narrow"></label>
+    <label>Konum <input type="text" id="f-q" placeholder="İstanbul, Ege…"></label>
+    <button id="f-apply" class="btn primary">Uygula</button>
+    <a id="f-csv" class="btn" href="#" download>📥 CSV</a>
+  </div>
+
+  <div class="kpis" id="arch-kpis"></div>
+
+  <div class="toolbar sub">
+    <label>Görünüm
+      <select id="arch-mode">
+        <option value="markers">İşaretçiler</option>
+        <option value="heat">Isı haritası</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" id="arch-faults" checked> Diri faylar</label>
+    <span class="muted" id="arch-note"></span>
+  </div>
+
+  <div id="map-archive" class="map tall"></div>
+
+  <div class="charts">
+    <div class="card wide"><canvas id="chart-yearly"></canvas></div>
+    <div class="card"><canvas id="chart-mag"></canvas></div>
+    <div class="card"><canvas id="chart-depth"></canvas></div>
+  </div>
+</main>
+
+<footer>
+  Veriler: Kandilli Rasathanesi · AFAD · USGS &nbsp;|&nbsp; Zamanlar Türkiye saatine (UTC+3) çevrilir
+  &nbsp;|&nbsp; Bu araç resmî deprem tahmini yapmaz.
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
