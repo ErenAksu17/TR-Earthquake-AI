@@ -1,17 +1,15 @@
+# Çalışma zamanı bağımlılıkları — sunucunun ihtiyaç duyduğu her şey.
+# Veri hazırlama ve test araçları için: requirements-dev.txt
+
 # Veri katmanı
 pandas>=3.0,<4
 numpy>=2.5,<3
 pyarrow>=25.0
 geopandas>=1.1,<2
 shapely>=2.1,<3
-openpyxl>=3.1
+scipy>=1.18
 requests>=2.34
 
-# API + arayüz
+# API + arayüz sunumu
 fastapi>=0.141
 uvicorn[standard]>=0.52
-
-# Test
-pytest>=9.1
-httpx>=0.28
-scipy>=1.18

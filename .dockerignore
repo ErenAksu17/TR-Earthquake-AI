@@ -1,0 +1,22 @@
+.git
+.venv
+frontend/node_modules
+frontend/src
+frontend/public
+frontend/*.json
+frontend/*.ts
+frontend/*.html
+tests
+notebooks
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.github
+.claude
+.vscode
+
+# Yalnızca yeniden inşa için gereken ham veri — dağıtıma girmez
+data/*.xlsx
+data/diri_faylar.geojson
+data/*.bak

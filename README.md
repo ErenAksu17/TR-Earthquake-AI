@@ -341,6 +341,37 @@ Her push'ta GitHub Actions üzerinde otomatik çalışır.
 
 ---
 
+## 🚀 Yayına Alma (Render)
+
+Depo, Render'da tek tıkla dağıtılacak şekilde hazırlanmıştır.
+
+1. [render.com](https://render.com) → **New → Blueprint**
+2. Bu GitHub deposunu seç — Render `render.yaml` dosyasını otomatik okur
+3. **Apply** de; ilk dağıtım ~5 dakika sürer
+
+Yapılandırma dosyaları:
+
+| Dosya | Görevi |
+|---|---|
+| `render.yaml` | Servis tanımı (Docker, ücretsiz plan, Frankfurt, sağlık kontrolü) |
+| `Dockerfile` | Üretim imajı — yalnızca çalışma zamanı dosyalarını kopyalar |
+| `.dockerignore` | Ham veriyi (Excel'ler, 12 MB fay DB'si) imajın dışında tutar |
+| `requirements.txt` | Çalışma zamanı bağımlılıkları |
+| `requirements-dev.txt` | Test + veri hazırlama araçları (sunucuya gitmez) |
+
+**Ölçülen kaynak kullanımı:** tam uygulama (katalog + ayıklama + Vs30 + fay
+modeli yüklü) **232 MB bellek** — Render'ın ücretsiz 512 MB sınırına rahat sığar.
+Dağıtılan veri 32 MB → **~6 MB**.
+
+> Ücretsiz planda servis 15 dakika hareketsizlikte uyur; uyandıktan sonraki ilk
+> istek ~40 saniye sürer. Sürekli açık kalması gerekiyorsa ücretli plana geçmek
+> ya da harici bir ping servisi kullanmak gerekir.
+
+Sağlık kontrolü `GET /api/health` ucundan yapılır; veri dosyalarından biri
+eksikse 503 döner ve dağıtım başarısız sayılır.
+
+---
+
 ## 🤝 Katkıda Bulunma
 
 1. Fork'la

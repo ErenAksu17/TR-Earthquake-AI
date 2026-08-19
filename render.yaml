@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: tr-earthquake-ai
+    runtime: docker
+    plan: free
+    region: frankfurt          # Türkiye'ye en yakın Render bölgesi
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"

@@ -15,6 +15,7 @@ Uçlar:
   GET /api/faults/geometry          Fay kaynaklarının GeoJSON geometrisi
   GET /api/scenario?fault_id=       Fay kırılma senaryosu (sonlu fay + zemin)
   GET /api/vs30                     Vs30 ızgarasının özeti ve sınırları
+  GET /api/health                   Dağıtım sağlık kontrolü
   GET /api/faults                   Sadeleştirilmiş diri fay GeoJSON'u
   GET /api/status                   Kaynak API erişilebilirlik durumu
   GET /                             Leaflet tabanlı arayüz (app/static)
@@ -459,6 +460,18 @@ def api_vs30():
         return vs30_summary()
     except FileNotFoundError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/api/health")
+def api_health():
+    """Dağıtım sağlık kontrolü — veri dosyaları yerinde mi?"""
+    import os as _os
+
+    required = ["merged", "settlements", "vs30", "fault_sources", "faults_simple"]
+    missing = [k for k in required if not _os.path.exists(PATHS[k])]
+    if missing:
+        raise HTTPException(status_code=503, detail=f"Eksik veri: {', '.join(missing)}")
+    return {"status": "ok", "catalog_records": int(len(catalog()))}
 
 
 @app.get("/api/faults")

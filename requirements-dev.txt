@@ -1,0 +1,12 @@
+# Geliştirme: testler + veri hazırlama betikleri
+-r requirements.txt
+
+# Test
+pytest>=9.1
+httpx>=0.28
+
+# Veri hazırlama (yalnızca src/prepare_*.py ve pipeline yeniden inşası için)
+openpyxl>=3.1      # ham AFAD Excel dışa aktarımlarını okur
+h5py>=3.11         # USGS Vs30 ızgarası (HDF5)
+fsspec>=2024.6     # Vs30'u HTTP aralık istekleriyle kısmi okur
+aiohttp>=3.9       # fsspec HTTP arka ucu
